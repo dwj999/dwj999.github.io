@@ -614,6 +614,983 @@
 
 
     
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://dwj999.github.io/MySQL-Group-Replication初探.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jiessie">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Jiessie's' Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/MySQL-Group-Replication初探.html" itemprop="url">MySQL Group Replication初探</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-28T14:01:23+08:00">
+                2017-11-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/集群高可用/" itemprop="url" rel="index">
+                    <span itemprop="name">集群高可用</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>MySQL Group Replication简称MGR，又称MySQL组复制，是MySQL官方于2016年12月12日推出的一个全新的高可用与高扩展的解决方案，首发集成于MySQL5.7.17版本中。MySQL组复制提供了高可用、高扩展、高可靠的MySQL集群服务。高一致性，基于原生复制及paxos协议的组复制技术，并以插件的方式提供，提供一致数据安全保证；高容错性，只要不是大多数节点坏掉就可以继续工作，有自动检测机制，当不同节点产生资源急用冲突时时，不会出现错误，按照先到者优先进行处理，并且内置了自动化脑裂防护机制；高扩展性，节点的新增和移除都是自动的，新节点加入后，会自动从其他节点上同步状态，直到新节点和其他节点保持一致，如果某节点被移除了，其他节点自动更新组信息，自动维护新的组信息；高灵活性，有单主模式和多主模式，单主模式下，会自动选主，所有更新操作都在主上进行；多主模式下，所有server都可以处理更新操作。</p>
+<h2 id="要求和限制"><a href="#要求和限制" class="headerlink" title="要求和限制"></a>要求和限制</h2><h3 id="基础结构"><a href="#基础结构" class="headerlink" title="基础结构"></a>基础结构</h3><ul>
+<li>数据必须存储在InnoDB存储引擎中</li>
+<li>表必须定义一个显式主键</li>
+<li>通信引擎仅支持IPv4</li>
+<li>需要低延迟，高带宽的网络<h3 id="server实例配置"><a href="#server实例配置" class="headerlink" title="server实例配置"></a>server实例配置</h3></li>
+<li>必须开启binlog</li>
+<li>必须开启log-slave-updates</li>
+<li>binlog格式必须为ROW格式</li>
+<li>必须开启GTID模式</li>
+<li>复制相关信息必须使用表存储（–master-info-repository = TABLE/–relay-log-info-repository = TABLE）</li>
+<li>事务写集合必须打开（Transaction write set extraction）</li>
+<li>root用户必须存在(group replication用于检查组用户是否存在)<h3 id="使用限制"><a href="#使用限制" class="headerlink" title="使用限制"></a>使用限制</h3></li>
+<li>不支持binlog的checksum，需要设置–binlog-checksum = NONE</li>
+<li>不支持savepoint</li>
+<li>不支持可串行serializable事务隔离级别</li>
+<li>不支持gap locks</li>
+<li>不支持lock tables,unlock tables</li>
+<li>多主模式下，不支持多节点同时对一个表进行DDL vs DDL/DML</li>
+<li>多主模式下，不支持多级关联外键</li>
+</ul>
+<h2 id="工作原理"><a href="#工作原理" class="headerlink" title="工作原理"></a>工作原理</h2><p>MySQL组复制是一个MySQL插件，它建立在现有的MySQL复制基础结构上，利用了二进制日志，基于行的日志记录和全局事务标识符等功能。它集成了当前的MySQL框架，如性能模式、插件和服务基础设施等。<br>组复制（Group Replication）基于分布式一致性算法(Paxos协议的变体)实现，一个组允许部分节点挂掉，只要保证绝大多数节点仍然存活并且之间的通讯是没有问题的，那么这个组对外仍然能够提供服务，它是一种被使用在容错系统中的技术。Group Replication（复制组）是由能够相互通信的多个服务器（节点）组成的。在通信层，Group replication实现了一系列的机制：比如原子消息（atomic message delivery）和全序化消息（total ordering of messages）。这些原子化，抽象化的机制，为实现更先进的数据库复制方案提供了强有力的支持。MySQL Group Replication正是基于这些技术和概念，实现了一种多主全更新的复制协议。简而言之，一个Group Replication就是一组节点，每个节点都可以独立执行事务，而读写事务则会在于group内的其他节点进行协调之后再commit。因此，当一个事务准备提交时，会自动在group内进行原子性的广播，告知其他节点变更了什么内容/执行了什么事务。这种原子广播的方式，使得这个事务在每一个节点上都保持着同样顺序。这意味着每一个节点都以同样的顺序，接收到了同样的事务日志，所以每一个节点以同样的顺序重演了这些事务日志，最终整个group保持了完全一致的状态。然而，不同的节点上执行的事务之间有可能存在资源争用。这种现象容易出现在两个不同的并发事务上。假设在不同的节点上有两个并发事务，更新了同一行数据，那么就会发生资源争用。面对这种情况，Group Replication判定先提交的事务为有效事务，会在整个group里面重放，后提交的事务会直接中断，或者回滚，最后丢弃掉。因此，这也是一个无共享的复制方案，每一个节点都保存了完整的数据副本。</p>
+<h2 id="组织结构"><a href="#组织结构" class="headerlink" title="组织结构"></a>组织结构</h2><p><img src="https://dev.mysql.com/doc/refman/5.7/en/images/gr-plugin-blocks.png" alt="image"></p>
+<ul>
+<li>API层 负责完成和MySQL Server的交互，获取server的状态，截获事务提交，干涉事务提交或者回滚。</li>
+<li>组件层 特定功能的组件，Capture负责收集事务执行相关信息，Applier负责应用集群事务到本地，Recovery负责新节点的数据恢复。</li>
+<li>复制层 负责冲突验证，接收和应用集群事务。</li>
+<li>集群通信层 基于Paxos协议的集群通信引擎以及和上层组件的交互接口。</li>
+</ul>
+<h2 id="容错"><a href="#容错" class="headerlink" title="容错"></a>容错</h2><p>MySQL组复制构建在paxos分布式算法实现的基础上，以提供不同server之间的分布式协调。因此，它需要大多数server处于活动状态以达到仲裁成员数，从而做出决定。这对系统可以容忍的不影响其自身及其整体功能的故障数量有直接影响。容忍f个故障所需的server数量(n)为n=2*f+1。<br>在实践中，这意味着为了容忍一个故障，组必须有三个server。因此，如果一个服务器故障，仍然有两个服务器形成大多数(三分之二)来允许系统自动地继续运行。但是，如果第二个server意外地fail掉，则该组(剩下一个server)锁定，因为没有多数可以达成协议。  </p>
+<h3 id="列表"><a href="#列表" class="headerlink" title="列表"></a>列表</h3><table>
+<thead>
+<tr>
+<th>组大小</th>
+<th style="text-align:left">多数</th>
+<th style="text-align:left">允许的即使故障数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td style="text-align:left">1</td>
+<td style="text-align:left">0</td>
+</tr>
+<tr>
+<td>2</td>
+<td style="text-align:left">2</td>
+<td style="text-align:left">0</td>
+</tr>
+<tr>
+<td>3</td>
+<td style="text-align:left">2</td>
+<td style="text-align:left">1</td>
+</tr>
+<tr>
+<td>4</td>
+<td style="text-align:left">3</td>
+<td style="text-align:left">1</td>
+</tr>
+<tr>
+<td>5</td>
+<td style="text-align:left">3</td>
+<td style="text-align:left">2</td>
+</tr>
+<tr>
+<td>6</td>
+<td style="text-align:left">4</td>
+<td style="text-align:left">2</td>
+</tr>
+<tr>
+<td>7</td>
+<td style="text-align:left">4</td>
+<td style="text-align:left">3</td>
+</tr>
+<tr>
+<td>8</td>
+<td style="text-align:left">5</td>
+<td style="text-align:left">3</td>
+</tr>
+<tr>
+<td>9</td>
+<td style="text-align:left">5</td>
+<td style="text-align:left">4</td>
+</tr>
+</tbody>
+</table>
+<h2 id="实践"><a href="#实践" class="headerlink" title="实践"></a>实践</h2><h3 id="在单主模式下部署组复制"><a href="#在单主模式下部署组复制" class="headerlink" title="在单主模式下部署组复制"></a>在单主模式下部署组复制</h3><h4 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h4><p>IP：192.168.7.50<br>system：Centos 6.5<br>hostname：jiessie<br>disk：300G ssd<br>memory：8G<br>cpu：4core<br>节点数：3</p>
+<h4 id="二进制安装包下载"><a href="#二进制安装包下载" class="headerlink" title="二进制安装包下载"></a>二进制安装包下载</h4><p>二进制包安装目录：/hwdata/data/mysql5.7.20/base<br>下载地址：<a href="https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz" target="_blank" rel="noopener">https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz</a><br>目录结构：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/hwdata/data/mysql5.7.20/base</span><br><span class="line">[root@jiessie base]# ll</span><br><span class="line">total 52</span><br><span class="line">-rw-r--r--  1 7161 31415 17987 Sep 13 23:48 COPYING</span><br><span class="line">-rw-r--r--  1 7161 31415  2478 Sep 13 23:48 README</span><br><span class="line">drwxr-xr-x  2 root root   4096 Nov 29 11:22 bin</span><br><span class="line">drwxr-xr-x  2 root root   4096 Nov 29 11:22 docs</span><br><span class="line">drwxr-xr-x  3 root root   4096 Nov 29 11:22 include</span><br><span class="line">drwxr-xr-x  5 root root   4096 Nov 29 11:22 lib</span><br><span class="line">drwxr-xr-x  4 root root   4096 Nov 29 11:22 man</span><br><span class="line">drwxr-xr-x 28 root root   4096 Nov 29 11:22 share</span><br><span class="line">drwxr-xr-x  2 root root   4096 Nov 29 11:22 support-files</span><br><span class="line">[root@jiessie base]#</span><br></pre></td></tr></table></figure></p>
+<h4 id="数据目录"><a href="#数据目录" class="headerlink" title="数据目录"></a>数据目录</h4><p>数据目录：/hwdata/data/mysql5.7.20/data<br>三节点的数据，分别存放于data子目录下的s1,s2,s3目录中<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# pwd</span><br><span class="line">/hwdata/data/mysql5.7.20</span><br><span class="line">[root@jiessie mysql5.7.20]# mkdir data/&#123;s1,s2,s3&#125;</span><br><span class="line">[root@jiessie mysql5.7.20]# ll data/</span><br><span class="line">total 12</span><br><span class="line">drwxr-xr-x 2 root root 4096 Nov 29 17:23 s1</span><br><span class="line">drwxr-xr-x 2 root root 4096 Nov 29 17:23 s2</span><br><span class="line">drwxr-xr-x 2 root root 4096 Nov 29 17:23 s3</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<h4 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h4><p>配置文件：/hwdata/data/mysql5.7.20/conf<br>三节点的配置文件，分别是conf目录下的s1.cnf,s2.cnf,s3.cnf<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# ll conf/</span><br><span class="line">total 12</span><br><span class="line">-rw-r--r-- 1 root root 948 Nov 29 17:35 s1.cnf</span><br><span class="line">-rw-r--r-- 1 root root 948 Nov 29 17:36 s2.cnf</span><br><span class="line">-rw-r--r-- 1 root root 948 Nov 29 17:37 s3.cnf</span><br><span class="line">[root@jiessie mysql5.7.20]# cat conf/s1.cnf </span><br><span class="line">[mysqld]</span><br><span class="line">datadir=/hwdata/data/mysql5.7.20/data/s1</span><br><span class="line">basedir=/hwdata/data/mysql5.7.20/base</span><br><span class="line">port=9001</span><br><span class="line">socket=/hwdata/data/mysql5.7.20/data/s1/s1.sock</span><br><span class="line"></span><br><span class="line">server_id=1</span><br><span class="line">gtid_mode=ON</span><br><span class="line">enforce_gtid_consistency=ON</span><br><span class="line">master_info_repository=TABLE</span><br><span class="line">relay_log_info_repository=TABLE</span><br><span class="line">binlog_checksum=NONE</span><br><span class="line">log_slave_updates=ON</span><br><span class="line">log_bin=binlog</span><br><span class="line">binlog_format=ROW</span><br><span class="line">innodb_buffer_pool_instances=4</span><br><span class="line">innodb_buffer_pool_size=128M</span><br><span class="line">innodb_flush_log_at_trx_commit=2</span><br><span class="line">sync_binlog=0</span><br><span class="line">slave-parallel-type=LOGICAL_CLOCK</span><br><span class="line">slave-parallel-workers=4</span><br><span class="line">slave_preserve_commit_order=on</span><br><span class="line">#group replication</span><br><span class="line">transaction_write_set_extraction=XXHASH64</span><br><span class="line">loose-group_replication_group_name=&quot;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa&quot;</span><br><span class="line">loose-group_replication_start_on_boot=off</span><br><span class="line">loose-group_replication_local_address= &quot;127.0.0.1:10011&quot;</span><br><span class="line">loose-group_replication_group_seeds= &quot;127.0.0.1:10011,127.0.0.1:10012,127.0.0.1:10013&quot;</span><br><span class="line">loose-group_replication_bootstrap_group= off</span><br><span class="line">loose-group_replication_single_primary_mode=true</span><br><span class="line">loose-group_replication_ip_whitelist=&quot;127.0.0.1/20,192.168.7.50/20&quot;</span><br><span class="line">[root@jiessie mysql5.7.20]# </span><br><span class="line">[root@jiessie mysql5.7.20]# cat conf/s2.cnf </span><br><span class="line">[mysqld]</span><br><span class="line">datadir=/hwdata/data/mysql5.7.20/data/s2</span><br><span class="line">basedir=/hwdata/data/mysql5.7.20/base</span><br><span class="line">port=9002</span><br><span class="line">socket=/hwdata/data/mysql5.7.20/data/s2/s2.sock</span><br><span class="line"></span><br><span class="line">server_id=2</span><br><span class="line">gtid_mode=ON</span><br><span class="line">enforce_gtid_consistency=ON</span><br><span class="line">master_info_repository=TABLE</span><br><span class="line">relay_log_info_repository=TABLE</span><br><span class="line">binlog_checksum=NONE</span><br><span class="line">log_slave_updates=ON</span><br><span class="line">log_bin=binlog</span><br><span class="line">binlog_format=ROW</span><br><span class="line">innodb_buffer_pool_instances=4</span><br><span class="line">innodb_buffer_pool_size=128M</span><br><span class="line">innodb_flush_log_at_trx_commit=2</span><br><span class="line">sync_binlog=0</span><br><span class="line">slave-parallel-type=LOGICAL_CLOCK</span><br><span class="line">slave-parallel-workers=4</span><br><span class="line">slave_preserve_commit_order=on</span><br><span class="line">#group replication</span><br><span class="line">transaction_write_set_extraction=XXHASH64</span><br><span class="line">loose-group_replication_group_name=&quot;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa&quot;</span><br><span class="line">loose-group_replication_start_on_boot=off</span><br><span class="line">loose-group_replication_local_address= &quot;127.0.0.1:10012&quot;</span><br><span class="line">loose-group_replication_group_seeds= &quot;127.0.0.1:10011,127.0.0.1:10012,127.0.0.1:10013&quot;</span><br><span class="line">loose-group_replication_bootstrap_group= off</span><br><span class="line">loose-group_replication_single_primary_mode=true</span><br><span class="line">loose-group_replication_ip_whitelist=&quot;127.0.0.1/20,192.168.7.50/20&quot;</span><br><span class="line">[root@jiessie mysql5.7.20]# </span><br><span class="line">[root@jiessie mysql5.7.20]# cat conf/s3.cnf </span><br><span class="line">[mysqld]</span><br><span class="line">datadir=/hwdata/data/mysql5.7.20/data/s3</span><br><span class="line">basedir=/hwdata/data/mysql5.7.20/base</span><br><span class="line">port=9003</span><br><span class="line">socket=/hwdata/data/mysql5.7.20/data/s3/s3.sock</span><br><span class="line"></span><br><span class="line">server_id=3</span><br><span class="line">gtid_mode=ON</span><br><span class="line">enforce_gtid_consistency=ON</span><br><span class="line">master_info_repository=TABLE</span><br><span class="line">relay_log_info_repository=TABLE</span><br><span class="line">binlog_checksum=NONE</span><br><span class="line">log_slave_updates=ON</span><br><span class="line">log_bin=binlog</span><br><span class="line">binlog_format=ROW</span><br><span class="line">innodb_buffer_pool_instances=4</span><br><span class="line">innodb_buffer_pool_size=128M</span><br><span class="line">innodb_flush_log_at_trx_commit=2</span><br><span class="line">sync_binlog=0</span><br><span class="line">slave-parallel-type=LOGICAL_CLOCK</span><br><span class="line">slave-parallel-workers=4</span><br><span class="line">slave_preserve_commit_order=on</span><br><span class="line">#group replication</span><br><span class="line">transaction_write_set_extraction=XXHASH64</span><br><span class="line">loose-group_replication_group_name=&quot;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa&quot;</span><br><span class="line">loose-group_replication_start_on_boot=off</span><br><span class="line">loose-group_replication_local_address= &quot;127.0.0.1:10013&quot;</span><br><span class="line">loose-group_replication_group_seeds= &quot;127.0.0.1:10011,127.0.0.1:10012,127.0.0.1:10013&quot;</span><br><span class="line">loose-group_replication_bootstrap_group= off</span><br><span class="line">loose-group_replication_single_primary_mode=true</span><br><span class="line">loose-group_replication_ip_whitelist=&quot;127.0.0.1/20,192.168.7.50/20&quot;</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<ol>
+<li>三节点中配置不一致的参数有以下：  </li>
+</ol>
+<ul>
+<li>datadir     #数据目录  </li>
+<li>port        #服务端口  </li>
+<li>socket      #socket位置  </li>
+<li>server_id   #服务器标识  </li>
+<li>group_replication_local_address #组复制的本地地址</li>
+</ul>
+<ol start="2">
+<li>组复制相关参数：  </li>
+</ol>
+<ul>
+<li>transaction_write_set_extraction            #指示Server必须为每个事务收集写集合，并使用指定算法将其编码为散列  </li>
+<li>loose-group_replication_group_name          #组复制名称  </li>
+<li>loose-group_replication_start_on_boot       #server启动时是否自动启动组复制  </li>
+<li>loose-group_replication_local_address       #绑定的ip和端口接受其他组成员的连接  </li>
+<li>loose-group_replication_group_seeds         #本行为告诉服务器当服务器加入组时，应当连接到此列表的这些种子服务器进行配置。本设置可以不是全部的组成员地址  </li>
+<li>loose-group_replication_bootstrap_group     #配置是否自动启动引导组</li>
+<li>loose-group_replication_single_primary_mode #配置单主还是多主模式</li>
+<li>loose-group_replication_ip_whitelist        #默认情况下只允许127.0.0.1连接到复制组，如果是其他IP则需要配置  </li>
+</ul>
+<ol start="3">
+<li>开启并行复制</li>
+</ol>
+<ul>
+<li>set global slave_parallel_type = ‘LOGICAL_CLOCK’;</li>
+<li>set global slave_parallel_workers = N;</li>
+<li>set global slave_preserve_commit_order = ON;<br>这三个参数可以开启并行复制，实践中没有配置，特此提示。<h4 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h4>使用mysqld分别对s1,s2,s3进行初始化：  </li>
+<li>base/bin/mysqld –initialize-insecure –basedir=/hwdata/data/mysql5.7.20/base –datadir=/hwdata/data/mysql5.7.20/data/s1</li>
+<li>base/bin/mysqld –initialize-insecure –basedir=/hwdata/data/mysql5.7.20/base –datadir=/hwdata/data/mysql5.7.20/data/s2</li>
+<li>base/bin/mysqld –initialize-insecure –basedir=/hwdata/data/mysql5.7.20/base –datadir=/hwdata/data/mysql5.7.20/data/s3<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld --initialize-insecure --basedir=/hwdata/data/mysql5.7.20/base --datadir=/hwdata/data/mysql5.7.20/data/s1                   </span><br><span class="line">2017-11-30T04:55:56.436002Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).</span><br><span class="line">2017-11-30T04:55:57.095836Z 0 [Warning] InnoDB: New log files created, LSN=45790</span><br><span class="line">2017-11-30T04:55:57.216615Z 0 [Warning] InnoDB: Creating foreign key constraint system tables.</span><br><span class="line">2017-11-30T04:55:57.284024Z 0 [Warning] No existing UUID has been found, so we assume that this is the first time that this server has been started. Generating a new UUID: c0acc2c7-d58a-11e7-b59f-00163e00dc49.</span><br><span class="line">2017-11-30T04:55:57.287290Z 0 [Warning] Gtid table is not ready to be used. Table &apos;mysql.gtid_executed&apos; cannot be opened.</span><br><span class="line">2017-11-30T04:55:57.287678Z 1 [Warning] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.</span><br><span class="line">[root@jiessie mysql5.7.20]# </span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld --initialize-insecure --basedir=/hwdata/data/mysql5.7.20/base --datadir=/hwdata/data/mysql5.7.20/data/s2</span><br><span class="line">2017-11-30T04:56:20.520937Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).</span><br><span class="line">2017-11-30T04:56:21.152584Z 0 [Warning] InnoDB: New log files created, LSN=45790</span><br><span class="line">2017-11-30T04:56:21.278863Z 0 [Warning] InnoDB: Creating foreign key constraint system tables.</span><br><span class="line">2017-11-30T04:56:21.349754Z 0 [Warning] No existing UUID has been found, so we assume that this is the first time that this server has been started. Generating a new UUID: cf04e66c-d58a-11e7-b97e-00163e00dc49.</span><br><span class="line">2017-11-30T04:56:21.352655Z 0 [Warning] Gtid table is not ready to be used. Table &apos;mysql.gtid_executed&apos; cannot be opened.</span><br><span class="line">2017-11-30T04:56:21.353069Z 1 [Warning] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.</span><br><span class="line">[root@jiessie mysql5.7.20]# </span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld --initialize-insecure --basedir=/hwdata/data/mysql5.7.20/base --datadir=/hwdata/data/mysql5.7.20/data/s3</span><br><span class="line">2017-11-30T04:56:28.986804Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).</span><br><span class="line">2017-11-30T04:56:29.712932Z 0 [Warning] InnoDB: New log files created, LSN=45790</span><br><span class="line">2017-11-30T04:56:29.902130Z 0 [Warning] InnoDB: Creating foreign key constraint system tables.</span><br><span class="line">2017-11-30T04:56:29.970877Z 0 [Warning] No existing UUID has been found, so we assume that this is the first time that this server has been started. Generating a new UUID: d4286108-d58a-11e7-807d-00163e00dc49.</span><br><span class="line">2017-11-30T04:56:29.973699Z 0 [Warning] Gtid table is not ready to be used. Table &apos;mysql.gtid_executed&apos; cannot be opened.</span><br><span class="line">2017-11-30T04:56:29.974087Z 1 [Warning] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.</span><br><span class="line">[root@jiessie mysql5.7.20]# tree -L 2 data/ </span><br><span class="line">data/</span><br><span class="line">|-- s1</span><br><span class="line">|   |-- auto.cnf</span><br><span class="line">|   |-- ib_buffer_pool</span><br><span class="line">|   |-- ib_logfile0</span><br><span class="line">|   |-- ib_logfile1</span><br><span class="line">|   |-- ibdata1</span><br><span class="line">|   |-- mysql</span><br><span class="line">|   |-- performance_schema</span><br><span class="line">|   `-- sys</span><br><span class="line">|-- s2</span><br><span class="line">|   |-- auto.cnf</span><br><span class="line">|   |-- ib_buffer_pool</span><br><span class="line">|   |-- ib_logfile0</span><br><span class="line">|   |-- ib_logfile1</span><br><span class="line">|   |-- ibdata1</span><br><span class="line">|   |-- mysql</span><br><span class="line">|   |-- performance_schema</span><br><span class="line">|   `-- sys</span><br><span class="line">`-- s3</span><br><span class="line">    |-- auto.cnf</span><br><span class="line">    |-- ib_buffer_pool</span><br><span class="line">    |-- ib_logfile0</span><br><span class="line">    |-- ib_logfile1</span><br><span class="line">    |-- ibdata1</span><br><span class="line">    |-- mysql</span><br><span class="line">    |-- performance_schema</span><br><span class="line">    `-- sys</span><br><span class="line"></span><br><span class="line">12 directories, 15 files</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h4 id="启动数据库"><a href="#启动数据库" class="headerlink" title="启动数据库"></a>启动数据库</h4><p>添加权限：chown -R mysql:mysql /hwdata/data/mysql5.7.20/data/<br>分别启动三个节点数据库：</p>
+<ul>
+<li>base/bin/mysqld_safe –defaults-file=/hwdata/data/mysql5.7.20/conf/s1.cnf &amp;</li>
+<li>base/bin/mysqld_safe –defaults-file=/hwdata/data/mysql5.7.20/conf/s2.cnf &amp;</li>
+<li>base/bin/mysqld_safe –defaults-file=/hwdata/data/mysql5.7.20/conf/s3.cnf &amp;<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld_safe --defaults-file=/hwdata/data/mysql5.7.20/conf/s1.cnf &amp;</span><br><span class="line">[1] 25168</span><br><span class="line">[root@jiessie mysql5.7.20]# Logging to &apos;/hwdata/data/mysql5.7.20/data/s1/jiessie.err&apos;.</span><br><span class="line">2017-11-30T05:06:34.402042Z mysqld_safe Starting mysqld daemon with databases from /hwdata/data/mysql5.7.20/data/s1</span><br><span class="line"></span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld_safe --defaults-file=/hwdata/data/mysql5.7.20/conf/s2.cnf &amp;   </span><br><span class="line">[2] 25681</span><br><span class="line">[root@jiessie mysql5.7.20]# Logging to &apos;/hwdata/data/mysql5.7.20/data/s2/jiessie.err&apos;.</span><br><span class="line">2017-11-30T05:06:48.204177Z mysqld_safe Starting mysqld daemon with databases from /hwdata/data/mysql5.7.20/data/s2</span><br><span class="line"></span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld_safe --defaults-file=/hwdata/data/mysql5.7.20/conf/s3.cnf &amp; </span><br><span class="line">[3] 26193</span><br><span class="line">[root@jiessie mysql5.7.20]# Logging to &apos;/hwdata/data/mysql5.7.20/data/s3/jiessie.err&apos;.</span><br><span class="line">2017-11-30T05:06:59.779426Z mysqld_safe Starting mysqld daemon with databases from /hwdata/data/mysql5.7.20/data/s3</span><br><span class="line"></span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>查看进程:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# netstat -tunlp|grep mysql </span><br><span class="line">tcp        0      0 0.0.0.0:9001                0.0.0.0:*                   LISTEN      25609/mysqld        </span><br><span class="line">tcp        0      0 0.0.0.0:9002                0.0.0.0:*                   LISTEN      26122/mysqld        </span><br><span class="line">tcp        0      0 0.0.0.0:9003                0.0.0.0:*                   LISTEN      26634/mysqld        </span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<h4 id="添加复制用户"><a href="#添加复制用户" class="headerlink" title="添加复制用户"></a>添加复制用户</h4><p>创建具有replication slave权限的MySQL用户,此操作不应记录到二进制中,以避免将更改传递到其他slave实例.<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 3</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; SET SQL_LOG_BIN=0;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; CREATE USER rpl_user@&apos;%&apos;;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; GRANT REPLICATION SLAVE ON *.* TO rpl_user@&apos;%&apos; IDENTIFIED BY &apos;rpl_pass&apos;;</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; FLUSH PRIVILEGES;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SET SQL_LOG_BIN=1;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; CHANGE MASTER TO MASTER_USER=&apos;rpl_user&apos;, MASTER_PASSWORD=&apos;rpl_pass&apos; FOR CHANNEL &apos;group_replication_recovery&apos;;</span><br><span class="line">Query OK, 0 rows affected, 2 warnings (0.04 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock     </span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 3</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; SET SQL_LOG_BIN=0;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; CREATE USER rpl_user@&apos;%&apos;;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; GRANT REPLICATION SLAVE ON *.* TO rpl_user@&apos;%&apos; IDENTIFIED BY &apos;rpl_pass&apos;;</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; FLUSH PRIVILEGES;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SET SQL_LOG_BIN=1;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; CHANGE MASTER TO MASTER_USER=&apos;rpl_user&apos;, MASTER_PASSWORD=&apos;rpl_pass&apos; FOR CHANNEL &apos;group_replication_recovery&apos;;</span><br><span class="line">Query OK, 0 rows affected, 2 warnings (0.04 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock   </span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 3</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; SET SQL_LOG_BIN=0;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; CREATE USER rpl_user@&apos;%&apos;;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; GRANT REPLICATION SLAVE ON *.* TO rpl_user@&apos;%&apos; IDENTIFIED BY &apos;rpl_pass&apos;;</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; FLUSH PRIVILEGES;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SET SQL_LOG_BIN=1;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; CHANGE MASTER TO MASTER_USER=&apos;rpl_user&apos;, MASTER_PASSWORD=&apos;rpl_pass&apos; FOR CHANNEL &apos;group_replication_recovery&apos;;</span><br><span class="line">Query OK, 0 rows affected, 2 warnings (0.03 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<h4 id="启动组复制"><a href="#启动组复制" class="headerlink" title="启动组复制"></a>启动组复制</h4><p>配置并启动s1后,安装组复制插件,然后连接到server并执行以下命令.  </p>
+<p><font color="#FF0000">注意:<br>创建一个Group Replication,需要在一个节点初始化,也只需要在一个节点初始化,不可在多个节点都执行.</font><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 4</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; INSTALL PLUGIN group_replication SONAME &apos;group_replication.so&apos;;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; show plugins;</span><br><span class="line">+----------------------------+----------+--------------------+----------------------+---------+</span><br><span class="line">| Name                       | Status   | Type               | Library              | License |</span><br><span class="line">+----------------------------+----------+--------------------+----------------------+---------+</span><br><span class="line">| binlog                     | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| mysql_native_password      | ACTIVE   | AUTHENTICATION     | NULL                 | GPL     |</span><br><span class="line">| sha256_password            | ACTIVE   | AUTHENTICATION     | NULL                 | GPL     |</span><br><span class="line">| PERFORMANCE_SCHEMA         | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| MRG_MYISAM                 | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| MEMORY                     | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| InnoDB                     | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| INNODB_TRX                 | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_LOCKS               | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_LOCK_WAITS          | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_CMP                 | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_CMP_RESET           | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_CMPMEM              | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_CMPMEM_RESET        | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_CMP_PER_INDEX       | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_CMP_PER_INDEX_RESET | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_BUFFER_PAGE         | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_BUFFER_PAGE_LRU     | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_BUFFER_POOL_STATS   | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_TEMP_TABLE_INFO     | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_METRICS             | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_FT_DEFAULT_STOPWORD | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_FT_DELETED          | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_FT_BEING_DELETED    | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_FT_CONFIG           | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_FT_INDEX_CACHE      | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_FT_INDEX_TABLE      | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_TABLES          | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_TABLESTATS      | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_INDEXES         | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_COLUMNS         | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_FIELDS          | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_FOREIGN         | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_FOREIGN_COLS    | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_TABLESPACES     | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_DATAFILES       | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| INNODB_SYS_VIRTUAL         | ACTIVE   | INFORMATION SCHEMA | NULL                 | GPL     |</span><br><span class="line">| CSV                        | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| MyISAM                     | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| ARCHIVE                    | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| partition                  | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| BLACKHOLE                  | ACTIVE   | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| FEDERATED                  | DISABLED | STORAGE ENGINE     | NULL                 | GPL     |</span><br><span class="line">| ngram                      | ACTIVE   | FTPARSER           | NULL                 | GPL     |</span><br><span class="line">| group_replication          | ACTIVE   | GROUP REPLICATION  | group_replication.so | GPL     |</span><br><span class="line">+----------------------------+----------+--------------------+----------------------+---------+</span><br><span class="line">45 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SET GLOBAL group_replication_bootstrap_group=ON;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; START GROUP_REPLICATION;</span><br><span class="line">Query OK, 0 rows affected (3.02 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SET GLOBAL group_replication_bootstrap_group=OFF;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | c0acc2c7-d58a-11e7-b59f-00163e00dc49 | jiessie     |        9001 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<h4 id="添加其他组复制节点"><a href="#添加其他组复制节点" class="headerlink" title="添加其他组复制节点"></a>添加其他组复制节点</h4><p>在其他2个节点上开启组复制<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 4</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; INSTALL PLUGIN group_replication SONAME &apos;group_replication.so&apos;;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; START GROUP_REPLICATION;</span><br><span class="line">Query OK, 0 rows affected (6.57 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie mysql5.7.20]#  base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 4</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; INSTALL PLUGIN group_replication SONAME &apos;group_replication.so&apos;;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; START GROUP_REPLICATION;</span><br><span class="line">Query OK, 0 rows affected (3.27 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<h4 id="测试数据同步"><a href="#测试数据同步" class="headerlink" title="测试数据同步"></a>测试数据同步</h4><p>在s1节点上插入数据，在其他节点上查看数据是否同步及binlog详情</p>
+<ol>
+<li><p>刷新flush logs</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;flush logs;show binary logs;&quot;                                  +---------------+-----------+</span><br><span class="line">| Log_name      | File_size |</span><br><span class="line">+---------------+-----------+</span><br><span class="line">| binlog.000001 |      1101 |</span><br><span class="line">| binlog.000002 |      1162 |</span><br><span class="line">| binlog.000003 |      2329 |</span><br><span class="line">| binlog.000004 |       230 |</span><br><span class="line">| binlog.000005 |      1017 |</span><br><span class="line">| binlog.000006 |       190 |</span><br><span class="line">+---------------+-----------+</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock -e &quot;flush logs;show binary logs;&quot;  </span><br><span class="line">+---------------+-----------+</span><br><span class="line">| Log_name      | File_size |</span><br><span class="line">+---------------+-----------+</span><br><span class="line">| binlog.000001 |       169 |</span><br><span class="line">| binlog.000002 |      2054 |</span><br><span class="line">| binlog.000003 |      3106 |</span><br><span class="line">| binlog.000004 |       190 |</span><br><span class="line">+---------------+-----------+</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock -e &quot;flush logs;show binary logs;&quot;  </span><br><span class="line">+---------------+-----------+</span><br><span class="line">| Log_name      | File_size |</span><br><span class="line">+---------------+-----------+</span><br><span class="line">| binlog.000001 |       169 |</span><br><span class="line">| binlog.000002 |       150 |</span><br><span class="line">| binlog.000003 |      4970 |</span><br><span class="line">| binlog.000004 |       190 |</span><br><span class="line">+---------------+-----------+</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>节点1插入数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;create database if not exists test;create table test.t1(id int unsigned not null auto_increment primary key,name varchar(20))&quot;           </span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;desc test.t1;select * from test.t1&quot;    </span><br><span class="line">+-------+------------------+------+-----+---------+----------------+</span><br><span class="line">| Field | Type             | Null | Key | Default | Extra          |</span><br><span class="line">+-------+------------------+------+-----+---------+----------------+</span><br><span class="line">| id    | int(10) unsigned | NO   | PRI | NULL    | auto_increment |</span><br><span class="line">| name  | varchar(20)      | YES  |     | NULL    |                |</span><br><span class="line">+-------+------------------+------+-----+---------+----------------+</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;insert into test.t1 values(null,&apos;111&apos;)&quot;</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;select * from test.t1&quot;</span><br><span class="line">+----+------+</span><br><span class="line">| id | name |</span><br><span class="line">+----+------+</span><br><span class="line">|  1 | 111  |</span><br><span class="line">+----+------+</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;show binlog events in &apos;binlog.000006&apos;&quot; </span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">| Log_name      | Pos | Event_type     | Server_id | End_log_pos | Info                                                                                       |</span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">| binlog.000006 |   4 | Format_desc    |         1 |         123 | Server ver: 5.7.20-log, Binlog ver: 4                                                      |</span><br><span class="line">| binlog.000006 | 123 | Previous_gtids |         1 |         190 | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-19                                                  |</span><br><span class="line">| binlog.000006 | 190 | Gtid           |         1 |         251 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:20&apos;                         |</span><br><span class="line">| binlog.000006 | 251 | Query          |         1 |         360 | create database if not exists test                                                         |</span><br><span class="line">| binlog.000006 | 360 | Gtid           |         1 |         421 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:21&apos;                         |</span><br><span class="line">| binlog.000006 | 421 | Query          |         1 |         582 | create table test.t1(id int unsigned not null auto_increment primary key,name varchar(20)) |</span><br><span class="line">| binlog.000006 | 582 | Gtid           |         1 |         643 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:22&apos;                         |</span><br><span class="line">| binlog.000006 | 643 | Query          |         1 |         712 | BEGIN                                                                                      |</span><br><span class="line">| binlog.000006 | 712 | Table_map      |         1 |         756 | table_id: 223 (test.t1)                                                                    |</span><br><span class="line">| binlog.000006 | 756 | Write_rows     |         1 |         796 | table_id: 223 flags: STMT_END_F                                                            |</span><br><span class="line">| binlog.000006 | 796 | Xid            |         1 |         823 | COMMIT /* xid=151 */                                                                       |</span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>其他节点查看数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock -e &quot;show binlog events in &apos;binlog.000004&apos;&quot;   </span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">| Log_name      | Pos | Event_type     | Server_id | End_log_pos | Info                                                                                       |</span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">| binlog.000004 |   4 | Format_desc    |         2 |         123 | Server ver: 5.7.20-log, Binlog ver: 4                                                      |</span><br><span class="line">| binlog.000004 | 123 | Previous_gtids |         2 |         190 | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-19                                                  |</span><br><span class="line">| binlog.000004 | 190 | Gtid           |         1 |         251 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:20&apos;                         |</span><br><span class="line">| binlog.000004 | 251 | Query          |         1 |         360 | create database if not exists test                                                         |</span><br><span class="line">| binlog.000004 | 360 | Gtid           |         1 |         421 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:21&apos;                         |</span><br><span class="line">| binlog.000004 | 421 | Query          |         1 |         582 | create table test.t1(id int unsigned not null auto_increment primary key,name varchar(20)) |</span><br><span class="line">| binlog.000004 | 582 | Gtid           |         1 |         643 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:22&apos;                         |</span><br><span class="line">| binlog.000004 | 643 | Query          |         1 |         707 | BEGIN                                                                                      |</span><br><span class="line">| binlog.000004 | 707 | Table_map      |         1 |         751 | table_id: 221 (test.t1)                                                                    |</span><br><span class="line">| binlog.000004 | 751 | Write_rows     |         1 |         791 | table_id: 221 flags: STMT_END_F                                                            |</span><br><span class="line">| binlog.000004 | 791 | Xid            |         1 |         818 | COMMIT /* xid=71 */                                                                        |</span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock -e &quot;show binlog events in &apos;binlog.000004&apos;&quot;  </span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">| Log_name      | Pos | Event_type     | Server_id | End_log_pos | Info                                                                                       |</span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">| binlog.000004 |   4 | Format_desc    |         3 |         123 | Server ver: 5.7.20-log, Binlog ver: 4                                                      |</span><br><span class="line">| binlog.000004 | 123 | Previous_gtids |         3 |         190 | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-19                                                  |</span><br><span class="line">| binlog.000004 | 190 | Gtid           |         1 |         251 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:20&apos;                         |</span><br><span class="line">| binlog.000004 | 251 | Query          |         1 |         360 | create database if not exists test                                                         |</span><br><span class="line">| binlog.000004 | 360 | Gtid           |         1 |         421 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:21&apos;                         |</span><br><span class="line">| binlog.000004 | 421 | Query          |         1 |         582 | create table test.t1(id int unsigned not null auto_increment primary key,name varchar(20)) |</span><br><span class="line">| binlog.000004 | 582 | Gtid           |         1 |         643 | SET @@SESSION.GTID_NEXT= &apos;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:22&apos;                         |</span><br><span class="line">| binlog.000004 | 643 | Query          |         1 |         707 | BEGIN                                                                                      |</span><br><span class="line">| binlog.000004 | 707 | Table_map      |         1 |         751 | table_id: 221 (test.t1)                                                                    |</span><br><span class="line">| binlog.000004 | 751 | Write_rows     |         1 |         791 | table_id: 221 flags: STMT_END_F                                                            |</span><br><span class="line">| binlog.000004 | 791 | Xid            |         1 |         818 | COMMIT /* xid=58 */                                                                        |</span><br><span class="line">+---------------+-----+----------------+-----------+-------------+--------------------------------------------------------------------------------------------+</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock -e &quot;select * from test.t1&quot;                  </span><br><span class="line">+----+------+</span><br><span class="line">| id | name |</span><br><span class="line">+----+------+</span><br><span class="line">|  1 | 111  |</span><br><span class="line">+----+------+</span><br><span class="line">You have new mail in /var/spool/mail/root</span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock -e &quot;select * from test.t1&quot;  </span><br><span class="line">+----+------+</span><br><span class="line">| id | name |</span><br><span class="line">+----+------+</span><br><span class="line">|  1 | 111  |</span><br><span class="line">+----+------+</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h4 id="节点状态查询"><a href="#节点状态查询" class="headerlink" title="节点状态查询"></a>节点状态查询</h4><p><font color="#FF0000">注意：</font><br>主机名和/etc/hosts中的信息要保持一致，否则可能会报<font color="#FF0000">“There was an error when connecting to the donor server. Please check that group_replication_r<br>ecovery channel credentials and all MEMBER_HOST column values of performance_schema.replication_group_members table are correct and DNS resolvable.”</font><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | c0acc2c7-d58a-11e7-b59f-00163e00dc49 | jiessie     |        9001 | ONLINE       |</span><br><span class="line">| group_replication_applier | cf04e66c-d58a-11e7-b97e-00163e00dc49 | jiessie     |        9002 | ONLINE       |</span><br><span class="line">| group_replication_applier | d4286108-d58a-11e7-807d-00163e00dc49 | jiessie     |        9003 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure></p>
+<h3 id="监控组复制"><a href="#监控组复制" class="headerlink" title="监控组复制"></a>监控组复制</h3><p>假设MySQL已经在启用了性能模式的情况下编译，使用performance_schema表监控组复制</p>
+<h4 id="replication-group-member-stats"><a href="#replication-group-member-stats" class="headerlink" title="replication_group_member_stats"></a>replication_group_member_stats</h4><p>复制组中的每个成员都会验证并应用该组提交的事务,有关验证和应用程序的统计信息对于了解申请队列增长情况,触发了多少冲突,检查了多少事务,哪些事务已被所有成员提交等非常有用,performance_shcema.replication_group_member_stats提供与认证过程相关的以下信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select * from performance_schema.replication_group_member_stats;</span><br><span class="line">+---------------------------+---------------------+--------------------------------------+-----------------------------+----------------------------+--------------------------+------------------------------------+-------------------------------------------+-----------------------------------------+</span><br><span class="line">| CHANNEL_NAME              | VIEW_ID             | MEMBER_ID                            | COUNT_TRANSACTIONS_IN_QUEUE | COUNT_TRANSACTIONS_CHECKED | COUNT_CONFLICTS_DETECTED | COUNT_TRANSACTIONS_ROWS_VALIDATING | TRANSACTIONS_COMMITTED_ALL_MEMBERS        | LAST_CONFLICT_FREE_TRANSACTION          |</span><br><span class="line">+---------------------------+---------------------+--------------------------------------+-----------------------------+----------------------------+--------------------------+------------------------------------+-------------------------------------------+-----------------------------------------+</span><br><span class="line">| group_replication_applier | 15120910223421577:3 | c0acc2c7-d58a-11e7-b59f-00163e00dc49 |                           0 |                         13 |                        0 |                                  0 | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-22 | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:22 |</span><br><span class="line">+---------------------------+---------------------+--------------------------------------+-----------------------------+----------------------------+--------------------------+------------------------------------+-------------------------------------------+-----------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<h5 id="参数解释"><a href="#参数解释" class="headerlink" title="参数解释"></a>参数解释</h5><table>
+<thead>
+<tr>
+<th>Field</th>
+<th style="text-align:left">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CHANNEL_NAME</td>
+<td style="text-align:left">组复制通道的名称</td>
+</tr>
+<tr>
+<td>VIEW_ID</td>
+<td style="text-align:left">组复制当前视图标识符</td>
+</tr>
+<tr>
+<td>MEMBER_ID</td>
+<td style="text-align:left">当前连接到server成员的UUID,组中的每个成员具有不同的值</td>
+</tr>
+<tr>
+<td>COUNT_TRANSACTIONS_IN_QUEUE</td>
+<td style="text-align:left">队列中等待冲突检测检查的事务数,冲突检查通过后,他们排队等待应用</td>
+</tr>
+<tr>
+<td>COUNT_TRANSACTIONS_CHECKED</td>
+<td style="text-align:left">已进行过冲突检查的事务数</td>
+</tr>
+<tr>
+<td>COUNT_CONFLICTS_DETECTED</td>
+<td style="text-align:left">未通过冲突检查的事务数</td>
+</tr>
+<tr>
+<td>COUNT_TRANSACTIONS_ROWS_VALIDATING</td>
+<td style="text-align:left">可用于认证的事务行的数量，但没有被垃圾收集</td>
+</tr>
+<tr>
+<td>TRANSACTIONS_COMMITTED_ALL_MEMBERS</td>
+<td style="text-align:left">当前视图的所有成员成功提交的事务,此值为固定的时间间隔更新</td>
+</tr>
+<tr>
+<td>LAST_CONFLICT_FREE_TRANSACTION</td>
+<td style="text-align:left">最后一个经检查无冲突的事务标识符</td>
+</tr>
+</tbody>
+</table>
+<h4 id="replication-group-members"><a href="#replication-group-members" class="headerlink" title="replication_group_members"></a>replication_group_members</h4><p>用于监控在当前视图中的不同server实例的状态<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | c0acc2c7-d58a-11e7-b59f-00163e00dc49 | jiessie     |        9001 | ONLINE       |</span><br><span class="line">| group_replication_applier | cf04e66c-d58a-11e7-b97e-00163e00dc49 | jiessie     |        9002 | ONLINE       |</span><br><span class="line">| group_replication_applier | d4286108-d58a-11e7-807d-00163e00dc49 | jiessie     |        9003 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<h5 id="参数解释-1"><a href="#参数解释-1" class="headerlink" title="参数解释"></a>参数解释</h5><table>
+<thead>
+<tr>
+<th>Field</th>
+<th style="text-align:left">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CHANNEL_NAME</td>
+<td style="text-align:left">组复制通道的名称</td>
+</tr>
+<tr>
+<td>MEMBER_ID</td>
+<td style="text-align:left">server成员的UUID</td>
+</tr>
+<tr>
+<td>MEMBER_HOST</td>
+<td style="text-align:left">组成员的网络地址</td>
+</tr>
+<tr>
+<td>MEMBER_PORT</td>
+<td style="text-align:left">侦听此成员的MySQL连接端口</td>
+</tr>
+<tr>
+<td>MEMBER_STATE</td>
+<td style="text-align:left">组成员的状态</td>
+</tr>
+</tbody>
+</table>
+<h4 id="replication-connection-status"><a href="#replication-connection-status" class="headerlink" title="replication_connection_status"></a>replication_connection_status</h4><p>此表显示处理从服务器连接主服务器的IO线程的当前状态<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select * from performance_schema.replication_connection_status;</span><br><span class="line">+---------------------------+--------------------------------------+--------------------------------------+-----------+---------------+---------------------------+--------------------------+-------------------------------------------+-------------------+--------------------+----------------------+</span><br><span class="line">| CHANNEL_NAME              | GROUP_NAME                           | SOURCE_UUID                          | THREAD_ID | SERVICE_STATE | COUNT_RECEIVED_HEARTBEATS | LAST_HEARTBEAT_TIMESTAMP | RECEIVED_TRANSACTION_SET                  | LAST_ERROR_NUMBER | LAST_ERROR_MESSAGE | LAST_ERROR_TIMESTAMP |</span><br><span class="line">+---------------------------+--------------------------------------+--------------------------------------+-----------+---------------+---------------------------+--------------------------+-------------------------------------------+-------------------+--------------------+----------------------+</span><br><span class="line">| group_replication_applier | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa |      NULL | ON            |                         0 | 0000-00-00 00:00:00      | aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-22 |                 0 |                    | 0000-00-00 00:00:00  |</span><br><span class="line">+---------------------------+--------------------------------------+--------------------------------------+-----------+---------------+---------------------------+--------------------------+-------------------------------------------+-------------------+--------------------+----------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<h5 id="参数解释-2"><a href="#参数解释-2" class="headerlink" title="参数解释"></a>参数解释</h5><table>
+<thead>
+<tr>
+<th>Field</th>
+<th style="text-align:left">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CHANNEL_NAME</td>
+<td style="text-align:left">组复制通道的名称</td>
+</tr>
+<tr>
+<td>GROUP_NAME</td>
+<td style="text-align:left">如果此服务器是组的成员，则显示服务器所属的组的名称</td>
+</tr>
+<tr>
+<td>SOURCE_UUID</td>
+<td style="text-align:left">组的标识符,类似组名称,被用作组复制期间生成的所有事务的UUID</td>
+</tr>
+<tr>
+<td>THREAD_ID</td>
+<td style="text-align:left">IO线程ID</td>
+</tr>
+<tr>
+<td>SERVICE_STATE</td>
+<td style="text-align:left">IO状态,ON（线程存在并处于活动状态或空闲状态）,OFF（线程不再存在）或CONNECTING（线程存在并连接到主控制器）</td>
+</tr>
+<tr>
+<td>COUNT_RECEIVED_HEARTBEATS</td>
+<td style="text-align:left">从上次重新启动或复位复制从服务器接收到的心跳信号的总数或发出CHANGE MASTER TO语句</td>
+</tr>
+<tr>
+<td>LAST_HEARTBEAT_TIMESTAMP</td>
+<td style="text-align:left">YYMMDD HH:MM:SS格式中 的时间戳，显示复制从站接收到最新的心跳信号的时间</td>
+</tr>
+<tr>
+<td>RECEIVED_TRANSACTION_SET</td>
+<td style="text-align:left">此GTID集合中的事务已由该组的此成员接收</td>
+</tr>
+<tr>
+<td>LAST_ERROR_NUMBER</td>
+<td style="text-align:left">导致IO线程停止的错误号</td>
+</tr>
+<tr>
+<td>LAST_ERROR_MESSAGE</td>
+<td style="text-align:left">导致IO线程停止的错误消息</td>
+</tr>
+<tr>
+<td>LAST_ERROR_TIMESTAMP</td>
+<td style="text-align:left">YYMMDD HH:MM:SS格式 的时间戳,IO发生错误的时间</td>
+</tr>
+</tbody>
+</table>
+<h5 id="与show-slave-status的对应关系"><a href="#与show-slave-status的对应关系" class="headerlink" title="与show slave status的对应关系"></a>与show slave status的对应关系</h5><table>
+<thead>
+<tr>
+<th>replication_connection_status Column</th>
+<th style="text-align:left">SHOW SLAVE STATUS Column</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SOURCE_UUID</td>
+<td style="text-align:left">Master_UUID</td>
+</tr>
+<tr>
+<td>THREAD_ID</td>
+<td style="text-align:left">None</td>
+</tr>
+<tr>
+<td>SERVICE_STATE</td>
+<td style="text-align:left">Slave_IO_Running</td>
+</tr>
+<tr>
+<td>RECEIVED_TRANSACTION_SET</td>
+<td style="text-align:left">Retrieved_Gtid_Set</td>
+</tr>
+<tr>
+<td>LAST_ERROR_NUMBER</td>
+<td style="text-align:left">Last_IO_Errno</td>
+</tr>
+<tr>
+<td>LAST_ERROR_MESSAGE</td>
+<td style="text-align:left">Last_IO_Error</td>
+</tr>
+<tr>
+<td>LAST_ERROR_TIMESTAMP</td>
+<td style="text-align:left">Last_IO_Error_Timestamp</td>
+</tr>
+</tbody>
+</table>
+<h4 id="replication-applier-status"><a href="#replication-applier-status" class="headerlink" title="replication_applier_status"></a>replication_applier_status</h4><p>此表显示从服务器上当前的一般事务执行状态<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; select * from performance_schema.replication_applier_status;</span><br><span class="line">+---------------------------+---------------+-----------------+----------------------------+</span><br><span class="line">| CHANNEL_NAME              | SERVICE_STATE | REMAINING_DELAY | COUNT_TRANSACTIONS_RETRIES |</span><br><span class="line">+---------------------------+---------------+-----------------+----------------------------+</span><br><span class="line">| group_replication_applier | ON            |            NULL |                          0 |</span><br><span class="line">+---------------------------+---------------+-----------------+----------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<h5 id="参数解释-3"><a href="#参数解释-3" class="headerlink" title="参数解释"></a>参数解释</h5><table>
+<thead>
+<tr>
+<th>Field</th>
+<th style="text-align:left">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CHANNEL_NAME</td>
+<td style="text-align:left">组复制通道的名称</td>
+</tr>
+<tr>
+<td>SERVICE_STATE</td>
+<td style="text-align:left">显示复制通道状态是ON还是OFF</td>
+</tr>
+<tr>
+<td>REMAINING_DELAY</td>
+<td style="text-align:left">如果从站在DESIRED_DELAY主站应用事件之后等待 秒数，则此字段包含剩余的延迟秒数。</td>
+</tr>
+<tr>
+<td>COUNT_TRANSACTIONS_RETRIES</td>
+<td style="text-align:left">显示由于从属SQL线程未能应用事务而发生的重试次数。</td>
+</tr>
+</tbody>
+</table>
+<h5 id="与show-slave-status的对应关系-1"><a href="#与show-slave-status的对应关系-1" class="headerlink" title="与show slave status的对应关系"></a>与show slave status的对应关系</h5><table>
+<thead>
+<tr>
+<th>replication_connection_status Column</th>
+<th style="text-align:left">SHOW SLAVE STATUS Column</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SERVICE_STATE</td>
+<td style="text-align:left">None</td>
+</tr>
+<tr>
+<td>REMAINING_DELAY</td>
+<td style="text-align:left">SQL_Remaining_Delay</td>
+</tr>
+</tbody>
+</table>
+<h4 id="组复制中的server状态"><a href="#组复制中的server状态" class="headerlink" title="组复制中的server状态"></a>组复制中的server状态</h4><table>
+<thead>
+<tr>
+<th>Field</th>
+<th style="text-align:left">描述</th>
+<th style="text-align:left">Group Synchronized</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ONLINE</td>
+<td style="text-align:left">该成员可以作为一个具有所有功能的组成员,这意味着客户端可以连接并开始执行事务</td>
+<td style="text-align:left">Yes</td>
+</tr>
+<tr>
+<td>RECOVERING</td>
+<td style="text-align:left">该成员正在成为该组的有效成员,并且正处于恢复过程中,从数据源节点接收状态信息</td>
+<td style="text-align:left">No</td>
+</tr>
+<tr>
+<td>OFFLINE</td>
+<td style="text-align:left">插件已加载,但成员不属于任何组</td>
+<td style="text-align:left">No</td>
+</tr>
+<tr>
+<td>ERROR</td>
+<td style="text-align:left">本地成员的状态,只要恢复阶段或应用更改时出现错误,server就会进入此状态</td>
+<td style="text-align:left">No</td>
+</tr>
+<tr>
+<td>UNREACHABLE</td>
+<td style="text-align:left">每当本地故障检测器怀疑某个给定的server可能由于已经崩溃或被意外地断开而不可访问时,server的状态显示为”UNREACHABLE”</td>
+<td style="text-align:left">No</td>
+</tr>
+</tbody>
+</table>
+<h4 id="threads"><a href="#threads" class="headerlink" title="threads"></a>threads</h4><p>group replication线程的状态信息可以通过performance_schema.threads表进行查询，目前可以查询到group replication的线程如下：  </p>
+<ul>
+<li>thread/group_rpl/THD_applier_module_receiver</li>
+<li>thread/group_rpl/THD_certifier_broadcast</li>
+<li>thread/group_rpl/THD_recovery<h3 id="新成员加入组"><a href="#新成员加入组" class="headerlink" title="新成员加入组"></a>新成员加入组</h3><h4 id="配置group-replication-recovery通道"><a href="#配置group-replication-recovery通道" class="headerlink" title="配置group_replication_recovery通道"></a>配置group_replication_recovery通道</h4>当新成员加入一个group replication组后，首先要从其他节点上把它加入之前的数据复制过来。这些以前的数据不能过group replication的通信协议进行复制，而是使用了异步复制的机制。group replication需要使用一个名叫group_replication_recovery的异步复制通道(Channel)。用户必须要提前配置这个通道，不过只需要为这个通道配置连接需要的用户名和密码，其他参数在group replication插件启动group_replication_recovery通道时会自动进行配置。  </li>
+<li>change master to master_host=’rpl_user’,master_password=’rpl_pass’ fro channel = ‘group_replication_recovery’;</li>
+<li>连接到哪个成员上去复制数据，是由group replication插件随机选择的，因此为group_replication_recovery配置的用户要在每一个成员上存在<br>在启动group_replication_recovery通道之前，group replication会自动为其配置master_host和master_port。当一个成员加入组时，会收到组内其他成员的配置信息。配置信息中包括主机名和MySQL服务端口号。主机名和服务端口号是从全局只读变量hostname和port中获取的。如果hostname无法正常解析成ip地址或网络中使用了网络地址映射，group_replication_recovery通道就无法正常工作。有如下两种办法来解决这个问题：  </li>
+<li>在/etc/hosts中配置所有成员的主机名和ip地址的对应关系</li>
+<li>配置MySQL的report_host和report_port的命令行参数。如果用户配置了report_host或report_port，那么group replication会优先使用这个变量中的地址和端口<h4 id="成员加入组的步骤"><a href="#成员加入组的步骤" class="headerlink" title="成员加入组的步骤"></a>成员加入组的步骤</h4>MySQL的相关配置和创建复制用户的步骤略，group replication加入组的步骤如下：</li>
+<li>INSTALL PLUGIN group_replication SONAME ‘group_replication.so’;</li>
+<li>SET GLOBAL group_replication_group_name = “aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa”;</li>
+<li>SET GLOBAL group_replication_local_address= “127.0.0.1:10014”</li>
+<li>SET GLOBAL group_replication_group_seeds= “127.0.0.1:10011,127.0.0.1:10012,127.0.0.1:10013,127.0.0.1:10014”</li>
+<li>CHANGE MASTER TO MASTER_USER=’rpl_user’,MASTER_PASSWORD=’rpl_pass’ FOR CHANNEL ‘group_replication_recovery’;</li>
+<li>START GROUP_REPLICATION;<br>这里不再做演示，还是保持上文中三节点。<h3 id="强制移除故障成员"><a href="#强制移除故障成员" class="headerlink" title="强制移除故障成员"></a>强制移除故障成员</h3>当故障导致半数以上的成员不可用时，group replication就不能对外提供服务，当这种情况发生时，可以设置指定的成员能够立刻对外提供服务。虽然冗余能力不好，但至少能保障业务不中断。可通过以下设置：  </li>
+<li>SET GLOBAL group_replication_force_members = <a href="ip:port,ip:port" target="_blank" rel="noopener">ip:port,ip:port</a><br>group_replication_force_members中配置的是成员地址的列表，只需要在列表中的任意一个成员上设置即可，这个就是强制group replication用参数中的几个成员来构成组，把其他成员从组中移除出去。<h2 id="故障演练"><a href="#故障演练" class="headerlink" title="故障演练"></a>故障演练</h2>通过模拟其中一个节点故障后,主节点是否会自动迁移,故障节点恢复后,数据是否会自动同步<h3 id="查看当前组复制状态"><a href="#查看当前组复制状态" class="headerlink" title="查看当前组复制状态"></a>查看当前组复制状态</h3>登录节点1,查看组复制状态,确认当前节点1为主节点<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock   </span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 30</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | c0acc2c7-d58a-11e7-b59f-00163e00dc49 | jiessie     |        9001 | ONLINE       |</span><br><span class="line">| group_replication_applier | cf04e66c-d58a-11e7-b97e-00163e00dc49 | jiessie     |        9002 | ONLINE       |</span><br><span class="line">| group_replication_applier | d4286108-d58a-11e7-807d-00163e00dc49 | jiessie     |        9003 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from performance_schema.global_status where variable_name = &apos;group_replication_primary_member&apos;;</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| VARIABLE_NAME                    | VARIABLE_VALUE                       |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| group_replication_primary_member | c0acc2c7-d58a-11e7-b59f-00163e00dc49 |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h3 id="模拟主节点故障"><a href="#模拟主节点故障" class="headerlink" title="模拟主节点故障"></a>模拟主节点故障</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; shutdown;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h3 id="确认当前组复制状态"><a href="#确认当前组复制状态" class="headerlink" title="确认当前组复制状态"></a>确认当前组复制状态</h3><p>节点1的9001服务已经不存在,通过登录9002查看组成员状态,9002节点已经成为新节点<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# netstat -tunlp|grep mysql|grep 900                                         </span><br><span class="line">tcp        0      0 0.0.0.0:9002                0.0.0.0:*                   LISTEN      22034/mysqld        </span><br><span class="line">tcp        0      0 0.0.0.0:9003                0.0.0.0:*                   LISTEN      6059/mysqld         </span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 28</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | cf04e66c-d58a-11e7-b97e-00163e00dc49 | jiessie     |        9002 | ONLINE       |</span><br><span class="line">| group_replication_applier | d4286108-d58a-11e7-807d-00163e00dc49 | jiessie     |        9003 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">2 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from performance_schema.global_status where variable_name = &apos;group_replication_primary_member&apos;;</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| VARIABLE_NAME                    | VARIABLE_VALUE                       |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| group_replication_primary_member | cf04e66c-d58a-11e7-b97e-00163e00dc49 |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure></p>
+<h3 id="组复制新主节点插入数据"><a href="#组复制新主节点插入数据" class="headerlink" title="组复制新主节点插入数据"></a>组复制新主节点插入数据</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; create table test.t2(id int unsigned not null auto_increment primary key,age int);</span><br><span class="line">Query OK, 0 rows affected (0.02 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; insert into test.t2 values(null,111111);</span><br><span class="line">Query OK, 1 row affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from test.t2;</span><br><span class="line">+----+--------+</span><br><span class="line">| id | age    |</span><br><span class="line">+----+--------+</span><br><span class="line">|  2 | 111111 |</span><br><span class="line">+----+--------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="从节点查看数据"><a href="#从节点查看数据" class="headerlink" title="从节点查看数据"></a>从节点查看数据</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock   </span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 46</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from test.t2;</span><br><span class="line">+----+--------+</span><br><span class="line">| id | age    |</span><br><span class="line">+----+--------+</span><br><span class="line">|  2 | 111111 |</span><br><span class="line">+----+--------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="故障节点恢复"><a href="#故障节点恢复" class="headerlink" title="故障节点恢复"></a>故障节点恢复</h3><p>故障节点恢复后,登录实例,启动组复制<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysqld_safe --defaults-file=/hwdata/data/mysql5.7.20/conf/s1.cnf &amp; </span><br><span class="line">[6] 22692</span><br><span class="line">[root@jiessie mysql5.7.20]# 2017-12-01T07:35:42.377430Z mysqld_safe Logging to &apos;/hwdata/data/mysql5.7.20/data/s1/jiessie.err&apos;.</span><br><span class="line">2017-12-01T07:35:42.396416Z mysqld_safe Starting mysqld daemon with databases from /hwdata/data/mysql5.7.20/data/s1</span><br><span class="line"></span><br><span class="line">[root@jiessie mysql5.7.20]# netstat -tunlp|grep mysql|grep 900</span><br><span class="line">tcp        0      0 0.0.0.0:9001                0.0.0.0:*                   LISTEN      23135/mysqld        </span><br><span class="line">tcp        0      0 0.0.0.0:9002                0.0.0.0:*                   LISTEN      22034/mysqld        </span><br><span class="line">tcp        0      0 0.0.0.0:9003                0.0.0.0:*                   LISTEN      6059/mysqld         </span><br><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;START GROUP_REPLICATION;&quot;</span><br><span class="line">[root@jiessie mysql5.7.20]#</span><br></pre></td></tr></table></figure></p>
+<h3 id="再次查看组复制状态及插入数据状态"><a href="#再次查看组复制状态及插入数据状态" class="headerlink" title="再次查看组复制状态及插入数据状态"></a>再次查看组复制状态及插入数据状态</h3><p>故障节点已经加入到组复制中,同时故障期间插入的数也已经同步过来,主节点还是节点2的9002实例<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie mysql5.7.20]# base/bin/mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 48</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | c0acc2c7-d58a-11e7-b59f-00163e00dc49 | jiessie     |        9001 | ONLINE       |</span><br><span class="line">| group_replication_applier | cf04e66c-d58a-11e7-b97e-00163e00dc49 | jiessie     |        9002 | ONLINE       |</span><br><span class="line">| group_replication_applier | d4286108-d58a-11e7-807d-00163e00dc49 | jiessie     |        9003 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from performance_schema.global_status where variable_name = &apos;group_replication_primary_member&apos;;</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| VARIABLE_NAME                    | VARIABLE_VALUE                       |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| group_replication_primary_member | cf04e66c-d58a-11e7-b97e-00163e00dc49 |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from test.t2;</span><br><span class="line">+----+--------+</span><br><span class="line">| id | age    |</span><br><span class="line">+----+--------+</span><br><span class="line">|  2 | 111111 |</span><br><span class="line">+----+--------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<h2 id="组复制系统变量"><a href="#组复制系统变量" class="headerlink" title="组复制系统变量"></a>组复制系统变量</h2><table>
+<thead>
+<tr>
+<th>变量名</th>
+<th style="text-align:left">变量范围</th>
+<th style="text-align:left">动态变量</th>
+<th style="text-align:left">类型</th>
+<th style="text-align:left">默认</th>
+<th style="text-align:left">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_group_name" target="_blank" rel="noopener">group_replication_group_name</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">此server实例所属组名称,须是UUID格式</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_start_on_boot" target="_blank" rel="noopener">group_replication_start_on_boot</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">ON</td>
+<td style="text-align:left">server是否应在自身启动期间启动组复制</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_local_address" target="_blank" rel="noopener">group_replication_local_address</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">作为本地地址,格式为主机:端口</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_member_weight" target="_blank" rel="noopener">group_replication_member_weight</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">50</td>
+<td style="text-align:left">可以分配成员的百分比权重,影响成员在发生故障转移时作为主要成员选举的机会</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_group_seeds" target="_blank" rel="noopener">group_replication_group_seeds</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">提供加入成员的成员列表,其中加入成员需要的数据以获得与该组的同步</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_force_members" target="_blank" rel="noopener">group_replication_force_members</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">以逗号分隔开的组内其他成员的地址列表.此选项用于强制建立新的组成员关系,在此过程中已排除的成员不接收新的视图并且被排除在外.您需要手动移除已排除的server</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_bootstrap_group" target="_blank" rel="noopener">group_replication_bootstrap_group</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">OFF</td>
+<td style="text-align:left">配置此server以引导组,此选项只能在一个server上设置,且只能在首次启动组或重启整个组时设置.组被引导后,将此选项设置为OFF.</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_poll_spin_loops" target="_blank" rel="noopener">group_replication_poll_spin_loops</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">0</td>
+<td style="text-align:left">在组通信线程等待传入更多的网络信息之前,等待mutex被释放的次数</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_retry_count" target="_blank" rel="noopener">group_replication_recovery_retry_count</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">10</td>
+<td style="text-align:left">要加入的成员尝试连接到可用数据源节点的次数</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_reconnect_interval" target="_blank" rel="noopener">group_replication_recovery_reconnect_interval</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">60</td>
+<td style="text-align:left">在组中找不到数据源节点时,重新尝试连接的时间间隔</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_use_ssl" target="_blank" rel="noopener">group_replication_recovery_use_ssl</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">OFF</td>
+<td style="text-align:left">组复制恢复通道是否使用SSL</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_ca" target="_blank" rel="noopener">group_replication_recovery_ssl_ca</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">包含受信任SSL证书颁发机构列表的文件的路径</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_capath" target="_blank" rel="noopener">group_replication_recovery_ssl_capath</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">包含受信任SSL证书颁发证书的目录路径</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_cert" target="_blank" rel="noopener">group_replication_recovery_ssl_cert</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">用于建立安全连接的SSL证书文件的名称</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_key" target="_blank" rel="noopener">group_replication_recovery_ssl_key</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">用于建立安全连接的SSL密钥文件的名称</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_cipher" target="_blank" rel="noopener">group_replication_recovery_ssl_cipher</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">用于SSL加密的密码列表</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_crl" target="_blank" rel="noopener">group_replication_recovery_ssl_crl</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">包含具有证书撤销列表文件的路径</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_crlpath" target="_blank" rel="noopener">group_replication_recovery_ssl_crlpath</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">NULL</td>
+<td style="text-align:left">包含具有证书撤销列表文件的路径</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_ssl_verify_server_cert" target="_blank" rel="noopener">group_replication_recovery_ssl_verify_server_cert</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">OFF</td>
+<td style="text-align:left">在恢复过程中用于检查数据源节点发送证书中的”通用名称”</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_recovery_complete_at" target="_blank" rel="noopener">group_replication_recovery_complete_at</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">enumeration</td>
+<td style="text-align:left">TRANSACTIONS_APPLIED</td>
+<td style="text-align:left">状态传输后处理缓存中的事务时的恢复策略.此选项指定成员在”接收到加入群组(TRANSACTIONS_CERTIFIED)之前遗漏的所有事务”或”收到并应用了这些事务(TRANSACTIONS_APPLIED)”之后,是否标记在线</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_components_stop_timeout" target="_blank" rel="noopener">group_replication_components_stop_timeout</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">31536000</td>
+<td style="text-align:left">组复制在关闭时等待每个组件的超时时间,以秒为单位</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_allow_local_lower_version_join" target="_blank" rel="noopener">group_replication_allow_local_lower_version_join</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">OFF</td>
+<td style="text-align:left">即使当前server的插件版本比组的插件版本低,也允许它加入组</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_allow_local_disjoint_gtids_join" target="_blank" rel="noopener">group_replication_allow_local_disjoint_gtids_join</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">OFF</td>
+<td style="text-align:left">即使含有组中不存在的事务,也允许当前server加入组,此选项要慎重,可能会破坏组内一致性</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_auto_increment_increment" target="_blank" rel="noopener">group_replication_auto_increment_increment</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">7</td>
+<td style="text-align:left">确定在此server实例上执行的连续事务之间的步长</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_compression_threshold" target="_blank" rel="noopener">group_replication_compression_threshold</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">1000000</td>
+<td style="text-align:left">以字节为单位,超过该值将强制执行lz4压缩,当设置为0时,压缩设置无效</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_gtid_assignment_block_size" target="_blank" rel="noopener">group_replication_gtid_assignment_block_size</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">1000000</td>
+<td style="text-align:left">为每个成员保留的连接GTID数量,每个成员在开始时会消耗掉一些,当需要时在获取更多个</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_ssl_mode" target="_blank" rel="noopener">group_replication_ssl_mode</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">enumeration</td>
+<td style="text-align:left">DISABLED</td>
+<td style="text-align:left">指定组复制成员之间连接的安全状态</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_single_primary_mode" target="_blank" rel="noopener">group_replication_single_primary_mode</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">ON</td>
+<td style="text-align:left">设置组自动选择一个server来处理读写工作,这个server是主(primary),所有其他都是从(secondaries)</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_transaction_size_limit" target="_blank" rel="noopener">group_replication_transaction_size_limit</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">0</td>
+<td style="text-align:left">配置组接受最大事务大小,以字节为单位,大于这个事务被回滚.当设置为0时,无限制</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_unreachable_majority_timeout" target="_blank" rel="noopener">group_replication_unreachable_majority_timeout</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">0</td>
+<td style="text-align:left">配置在离开组之前遭受网络分区且无法连接到大多数成员的成员需要等待多长时间,默认情况为0,这意味着由于网络分区而成为少数的成员永远等待连接组.</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_enforce_update_everywhere_checks" target="_blank" rel="noopener">group_replication_enforce_update_everywhere_checks</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">boolean</td>
+<td style="text-align:left">OFF</td>
+<td style="text-align:left">多主模式下为多主更新或禁用严格一致性检查</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_flow_control_mode" target="_blank" rel="noopener">group_replication_flow_control_mode</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">enumeration</td>
+<td style="text-align:left">QUOTA</td>
+<td style="text-align:left">指定启用限流模式,不需要重置组复制就可以修改此变量</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_flow_control_certifier_threshold" target="_blank" rel="noopener">group_replication_flow_control_certifier_threshold</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">25000</td>
+<td style="text-align:left">触发限流的验证队列的阈值,不需要重置组复制就可以修改此变量</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_flow_control_applier_threshold" target="_blank" rel="noopener">group_replication_flow_control_applier_threshold</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">integer</td>
+<td style="text-align:left">25000</td>
+<td style="text-align:left">触发限流的应用队列的阈值,不需要重置组复制就可以修改此变量</td>
+</tr>
+<tr>
+<td><a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-options.html#sysvar_group_replication_ip_whitelist" target="_blank" rel="noopener">group_replication_ip_whitelist</a></td>
+<td style="text-align:left">Global</td>
+<td style="text-align:left">Yes</td>
+<td style="text-align:left">string</td>
+<td style="text-align:left">AUTOMATIC</td>
+<td style="text-align:left">指定允许哪些主机可以访问组,默认为AUTOMATIC,它允许来自主机上的私有子网的连接,多个以逗号分隔</td>
+</tr>
+</tbody>
+</table>
+<h2 id="组复制的多主和单主模式"><a href="#组复制的多主和单主模式" class="headerlink" title="组复制的多主和单主模式"></a>组复制的多主和单主模式</h2><p>默认为单主模式,组中的成员不可能以不同的模式部署,例如一个配置为多主模式,另一个配置为单主模式.要切换模式,组和服务器之间需要不的操作配置重新启动.无论部署模式如何,组复制不处理客户端故障切换,必须由应用程序本身,连接器或中间件框架如代理或路由器来处理.  </p>
+<h3 id="单主模式"><a href="#单主模式" class="headerlink" title="单主模式"></a>单主模式</h3><p>在此模式下,该组具有设置为读写械的单主服务器,组中的所有其他成员都设置为只读模式(超级只读模式super_read_only),所有其他加入的节点自动识别主节点并设置为自己为只读.</p>
+<h4 id="选主过程"><a href="#选主过程" class="headerlink" title="选主过程"></a>选主过程</h4><p>参考官方流程图:<br><img src="https://dev.mysql.com/doc/refman/5.7/en/images/single-primary-election.png" alt="image">在单主机模式下，将禁用在多主机模式下部署的某些检查，因为系统会强制每次只有一个写入节点。例如，允许对具有级联外键的表进行更改，而在多主模式下不允许。在主节点故障时，自动选举机制选择下一个主节点。通过按字典顺序（使用其UUID）并选择列表中的第一个节点来排序剩余的节点来选择下一个主节点,可通过group_replication_member_weight此参数影响选主。如果主节点从组中删除，则执行选择，并从组中的其余节点中选择新的主节点，这个选择按照词典顺序排序节点UUID并选择第一个来执行。一旦选择了新的主节点，其他节点将设置为从节点，从节点为只读。</p>
+<h3 id="多主模式"><a href="#多主模式" class="headerlink" title="多主模式"></a>多主模式</h3><p>在多主模式下，没有单个主模式的概念，也没有选举程序，因为没有节点发挥任何特殊的作用。加入组时，所有服务器都设置为读写模式。<br>在多主模式下部署时,将检查语句以确保他们与模式兼容,以多主模式部署组复制时进行以下检查:  </p>
+<ol>
+<li>如果一个事务在SERIALIZABLE隔离级别下执行，那么当它自己与该组同步时，它的提交失败。</li>
+<li>如果事务针对具有级联约束的外键的表执行，则在与组自身同步时，事务无法提交。<br>这些检查可以通过设置选项来禁用 group_replication_enforce_update_everywhere_checks 到FALSE。在单主模式下部署时，必须将此选项设置为FALSE。<h4 id="客户端故障转移"><a href="#客户端故障转移" class="headerlink" title="客户端故障转移"></a>客户端故障转移</h4>参考官方流程图:<br><img src="https://dev.mysql.com/doc/refman/5.7/en/images/multi-primary.png" alt="image"><h4 id="自增字段的处理"><a href="#自增字段的处理" class="headerlink" title="自增字段的处理"></a>自增字段的处理</h4>当使用多主模式时，需要设置autoincrement相关的参数来保证自增字段在每个成员上产生不同的值。group replication提供了两种配置方式，分别如下：</li>
+<li>直接配置MySQL的系统变量，通过命令来配置时，需要在所有成员上配置下面两个参数</li>
+</ol>
+<ul>
+<li>set global auto_increment_offset = N;</li>
+<li>set global auto_increment_increment = N;</li>
+</ul>
+<ol start="2">
+<li>通过group replication插件来配置，group replication插件定义了一个新的参数来配置自增字段的大小，上面的参数列表中也有解释</li>
+</ol>
+<ul>
+<li>set global group_replication_auto_increment_increment = N;<br>group_replication_auto_increment_increment的默认值是7。如果自增值的浪费不对业务千万影响，可以不用修改这个值。group replication没有提供新的参数来设置自增值的偏移，而是将MySQL服务器的server-id看作自增值的偏移。如果用户的server-id本来就是按照1、2、3这样的顺序配置的，就不需要再做额外的配置。在启动group replication插件时，它会检测用户是否配置了MySQL的自增变量。如果用户没有配置这两个参数（auto_increment_offset和auto_increment_increment都为1），则会自动将group_replication_auto_increment_increment和server-id的值设置到MySQL的auto_increment_increment和auto_increment_offset全局变量中。<br>自增变量将从1开始的连续自增值划分为固定大小的段，各个MySQL服务器分别使用段内不同偏移量的自增值。auto_increment_increment代表段的大小，每个成员都应该配置相同的段大小。而auto_increment_offset是本成员 的自增值在段内的偏移。每个成员应该设置不同的偏移量。假设段的大小设为5，成员A的偏移量设为1，成员B的偏移量设为2，那么成员A上产生的自增值为：1、6、11、16……，成员B上产生的自增值为：2、7、12、17……。如下图所示：<h5 id="自增ID示例图"><a href="#自增ID示例图" class="headerlink" title="自增ID示例图"></a>自增ID示例图</h5></li>
+<li>| 偏移1 | 偏移2 | 偏移3 | 偏移4 | 偏移5<br>—|—|—|—|—|—<br>第一段 | 1 | 2 | 3 | 4 | 5 |<br>第二段 | 6 | 7 | 8 | 9 | 10 |<br>第三段 | 11 | 12 | 13 | 14 | 15 |<br>第四段 | 16 | 17 | 18 | 19 | 20 |<br>… | … | … | … | … | … |<br>可以看出，自增字段的大小依赖于group replication组中的成员的多少。auto_increment_increment最小要等于group replication组内的数量。如果段的大小等于组内的数量，则所有的自增id都会被使用。如果段的大小大于组内的成员的数量，则有一部自增值永远不会被使用，会千万一定的浪费。比如，组内有3个成员，偏移分别是1、2、3，而段的大小是5，那么偏移4和5上的值就会被浪费掉。考虑到group replication组的扩展，最好将段的大小设置得比现有的组内成员数量大一些。这样虽然会浪费一些自增值，但是扩展会很简单。在使用的过程中变更自增字段的大小，处理起来会比较麻烦，所以要提前规划好。<h5 id="自增字段演示"><a href="#自增字段演示" class="headerlink" title="自增字段演示"></a>自增字段演示</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br></pre></td><td class="code"><pre><span class="line">[root@jiessie percona]# mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock -e &quot;show variables like &apos;server_id&apos;;&quot;</span><br><span class="line">+---------------+-------+</span><br><span class="line">| Variable_name | Value |</span><br><span class="line">+---------------+-------+</span><br><span class="line">| server_id     | 1     |</span><br><span class="line">+---------------+-------+</span><br><span class="line">[root@jiessie percona]# mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock -e &quot;show variables like &apos;server_id&apos;;&quot;  </span><br><span class="line">+---------------+-------+</span><br><span class="line">| Variable_name | Value |</span><br><span class="line">+---------------+-------+</span><br><span class="line">| server_id     | 2     |</span><br><span class="line">+---------------+-------+</span><br><span class="line">[root@jiessie percona]# mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock -e &quot;show variables like &apos;server_id&apos;;&quot;   </span><br><span class="line">+---------------+-------+</span><br><span class="line">| Variable_name | Value |</span><br><span class="line">+---------------+-------+</span><br><span class="line">| server_id     | 3     |</span><br><span class="line">+---------------+-------+</span><br><span class="line">[root@jiessie percona]# mysql -uroot -S /hwdata/data/mysql5.7.20/data/s1/s1.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 37</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2009-2017 Percona LLC and/or its affiliates</span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; show variables like &apos;group_replication_auto_increment_increment&apos;;</span><br><span class="line">+--------------------------------------------+-------+</span><br><span class="line">| Variable_name                              | Value |</span><br><span class="line">+--------------------------------------------+-------+</span><br><span class="line">| group_replication_auto_increment_increment | 5     |</span><br><span class="line">+--------------------------------------------+-------+</span><br><span class="line">1 row in set (0.01 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from performance_schema.global_status where variable_name = &apos;group_replication_primary_member&apos;;</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| VARIABLE_NAME                    | VARIABLE_VALUE                       |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">| group_replication_primary_member | c0acc2c7-d58a-11e7-b59f-00163e00dc49 |</span><br><span class="line">+----------------------------------+--------------------------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SELECT * FROM performance_schema.replication_group_members;</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| CHANNEL_NAME              | MEMBER_ID                            | MEMBER_HOST | MEMBER_PORT | MEMBER_STATE |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">| group_replication_applier | c0acc2c7-d58a-11e7-b59f-00163e00dc49 | jiessie     |        9001 | ONLINE       |</span><br><span class="line">| group_replication_applier | cf04e66c-d58a-11e7-b97e-00163e00dc49 | jiessie     |        9002 | ONLINE       |</span><br><span class="line">| group_replication_applier | d4286108-d58a-11e7-807d-00163e00dc49 | jiessie     |        9003 | ONLINE       |</span><br><span class="line">+---------------------------+--------------------------------------+-------------+-------------+--------------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; create table test.t0(id int unsigned not null primary key auto_increment,name varchar(20));            </span><br><span class="line">Query OK, 0 rows affected (0.04 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; insert into test.t0 values(null,&apos;111&apos;),(null,&apos;222&apos;),(null,&apos;333&apos;);</span><br><span class="line">Query OK, 3 rows affected (0.00 sec)</span><br><span class="line">Records: 3  Duplicates: 0  Warnings: 0</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from test.t0;</span><br><span class="line">+----+------+</span><br><span class="line">| id | name |</span><br><span class="line">+----+------+</span><br><span class="line">|  1 | 111  |</span><br><span class="line">|  6 | 222  |</span><br><span class="line">| 11 | 333  |</span><br><span class="line">+----+------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie percona]# mysql -uroot -S /hwdata/data/mysql5.7.20/data/s2/s2.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 27</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2009-2017 Percona LLC and/or its affiliates</span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; insert into test.t0 values(null,&apos;aaa&apos;),(null,&apos;bbb&apos;),(null,&apos;ccc&apos;);</span><br><span class="line">Query OK, 3 rows affected (0.00 sec)</span><br><span class="line">Records: 3  Duplicates: 0  Warnings: 0</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from test.t0;</span><br><span class="line">+----+------+</span><br><span class="line">| id | name |</span><br><span class="line">+----+------+</span><br><span class="line">|  1 | 111  |</span><br><span class="line">|  2 | aaa  |</span><br><span class="line">|  6 | 222  |</span><br><span class="line">|  7 | bbb  |</span><br><span class="line">| 11 | 333  |</span><br><span class="line">| 12 | ccc  |</span><br><span class="line">+----+------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie percona]# mysql -uroot -S /hwdata/data/mysql5.7.20/data/s3/s3.sock</span><br><span class="line">Welcome to the MySQL monitor.  Commands end with ; or \g.</span><br><span class="line">Your MySQL connection id is 23</span><br><span class="line">Server version: 5.7.20-log MySQL Community Server (GPL)</span><br><span class="line"></span><br><span class="line">Copyright (c) 2009-2017 Percona LLC and/or its affiliates</span><br><span class="line">Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.</span><br><span class="line"></span><br><span class="line">Oracle is a registered trademark of Oracle Corporation and/or its</span><br><span class="line">affiliates. Other names may be trademarks of their respective</span><br><span class="line">owners.</span><br><span class="line"></span><br><span class="line">Type &apos;help;&apos; or &apos;\h&apos; for help. Type &apos;\c&apos; to clear the current input statement.</span><br><span class="line"></span><br><span class="line">mysql&gt; insert into test.t0 values(null,&apos;123&apos;),(null,&apos;456&apos;),(null,&apos;789&apos;);</span><br><span class="line">Query OK, 3 rows affected (0.00 sec)</span><br><span class="line">Records: 3  Duplicates: 0  Warnings: 0</span><br><span class="line"></span><br><span class="line">mysql&gt; select * from test.t0;</span><br><span class="line">+----+------+</span><br><span class="line">| id | name |</span><br><span class="line">+----+------+</span><br><span class="line">|  1 | 111  |</span><br><span class="line">|  2 | aaa  |</span><br><span class="line">|  3 | 123  |</span><br><span class="line">|  6 | 222  |</span><br><span class="line">|  7 | bbb  |</span><br><span class="line">|  8 | 456  |</span><br><span class="line">| 11 | 333  |</span><br><span class="line">| 12 | ccc  |</span><br><span class="line">| 13 | 789  |</span><br><span class="line">+----+------+</span><br><span class="line">3 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; exit</span><br><span class="line">Bye</span><br><span class="line">[root@jiessie percona]#</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h4 id="DDL语句并发执行的问题"><a href="#DDL语句并发执行的问题" class="headerlink" title="DDL语句并发执行的问题"></a>DDL语句并发执行的问题</h4><p>多主复制时，通过冲突检测来辨别有冲突的事务，有冲突的事务通过回滚操作来处理。MySQL5.7上的DDL不是原子操作无法回滚，因此group replication没有对DDL做冲突检测。换句话说，DDL语句不会和其他任何语句冲突（包括DML和DDL）。如果DDL和有冲突的语句在不同的成员上同时执行，可能导致错误或数据不一致。假设在成员A上执行如下事务：  </p>
+<ul>
+<li>BEGIN;</li>
+<li>INSERT INTO t1 values(1);<br>此时，成员B上执行以下语句：  </li>
+<li>TRUNCATE TABLE t1;<br>成员A上接着执行：  </li>
+<li>COMMIT;<br>成员A上两个事务的执行顺序是：  </li>
+<li>INSERT INTO t1 VALUES(1);</li>
+<li>TRUNCATE TABLE t1;<br>成员B上两个事务的执行顺序是：  </li>
+<li>TRUNCATE TABLE t1;</li>
+<li>INSERT INTO t1 VALUES(1);<br>这就会导致两个成员上数据的不一致。因此多主模式下，执行任何DDL前，要将可能有冲突的事务迁移到同一台MySQL服务器上，再开始执行DDL语句。<h2 id="组复制基本原理"><a href="#组复制基本原理" class="headerlink" title="组复制基本原理"></a>组复制基本原理</h2><h3 id="状态机复制"><a href="#状态机复制" class="headerlink" title="状态机复制"></a>状态机复制</h3>本质上来说，group replication是一个状态机复制的集群。在状态机复制的架构中，数据库被当作一个状态机。每一次写操作都会导致数据库的状态变化。为了创建一个高可用的数据库集群，有一个组件将这些操作按照同样的顺序发送到多个初始状态一致的数据库上，让这些数据库执行同样的操作。因为初始状态相同，每次执行的操作也相同，所以每次状态变化后各个数据库服务器上的数据保持一致。下图是一个非常简单的状态机复制的示意图。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/1E369A3D807949C1B0B563C5F04A6165/41768" alt="image"><br>假设图中数据库DB1、DB2和DB3的初始状态是相同的，事务T1、T2和T3分别如下：  </li>
+</ul>
+<ol>
+<li>#T1<blockquote>
+<p>DELETE FROM t1 WHERE pk = 1;</p>
+</blockquote>
+</li>
+<li>#T2<blockquote>
+<p>UPDATE t1 SET c1 = 100 WHERE pk = 1;</p>
+</blockquote>
+</li>
+<li>#T3<blockquote>
+<p>UPDATE t1 SET c1 = 50 WHERE pk = 1;<br>3个客户端并发地将这3个事务发送到事务分发器上，事务分发器首先对这3个事务进行排序 ，然后按照同样的顺序（T3、T1、T2）并发地发送到DB1、DB2和DB3这3个数据库上去执行。T3最先在DB1、DB2和DB3上执行，执行完后，DB1、DB2和DB3上的结果相同。接着T1被执行，执行后DB1、DB2和DB3上t1表中pk为1的记录都被删除了。最后T2被执行，由于T1删除了记录，因此T2执行时会失败。T2在DB1、DB2和DB3上都会失败，所以DB1、DB2和DB3的数据仍然是一致的。  </p>
+</blockquote>
+<h3 id="分布式的状态机复制"><a href="#分布式的状态机复制" class="headerlink" title="分布式的状态机复制"></a>分布式的状态机复制</h3>在上图的模型中，事务分发器是一个单点故障点。为了避免单点故障，可以采用分布式的状态机复制。在分布式的状态机复制中，有多个事务分发器，它们彼此相互通信。事务分发器可以同时接收事务请求，就像单个事务分发器同时接收事务请求一样。从应用层面来说并发的事务发到同一个事务分发器和发到不同的事务分发器上效果是一样的。事务分发器之间会相互通信，把所有的事务汇总、排序。最终，每个事务分发器上都有一份完整的排好序的事务请求。每个事务分发器只连接到一台数据库服务器上，并负责把事务请求依次发送到这个相连的数据库上去执行。下图所示的是分布式状态机复制的一个模式。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/9259ECA7A83F43FCA15A73FFE800D447/41765" alt="image"><br>数据库DB1、DB2和DB3的初始状态是相同的，事务T1、T2和T3分别如下：  </li>
+<li>#T1<blockquote>
+<p>DELETE FROM t1 WHERE pk = 1;</p>
+</blockquote>
+</li>
+<li>#T2<blockquote>
+<p>UPDATE t1 SET c1 = 100 WHERE pk = 1;</p>
+</blockquote>
+</li>
+<li>#T3<blockquote>
+<p>UPDATE t1 SET c1 = 50 WHERE pk = 1;<br>3个客户端并发地将这3个事务发送到各自的事务分发器上。事务分发器彼此之间互相通信，最终每个事务分发器上都会有一份完整的顺序一样的事务请求列表（T3、T1、T2）。3个事务分发器将这些事务请求按照顺序发送到各自的数据库服务器上去执行。T3最先在DB1、DB2和DB3上执行，执行完后DB1、DB2和DB3上的结果相同。接着T1被执行，执行后DB1、DB2和DB3上t1表中pk为1的记录都被删除了。最后T2被执行，由于T1删除了记录，T2在DB1、DB2和DB3上都会失败，所以DB1、DB2和DB3的数据仍然是一致的。<br>不管是单个事务分发器还是多个事务分发协同工作，它们的目标都是一样的：将所有的事务按照同样的顺序发送到数据库服务器上去执行。  </p>
+</blockquote>
+<h3 id="分布式的高可用数据库"><a href="#分布式的高可用数据库" class="headerlink" title="分布式的高可用数据库"></a>分布式的高可用数据库</h3>如果将上图中的事务分发器集成到数据库系统中，就变成了一个分布式的高可用数据库系统，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/BD936C654F294854BC735E45E94327AB/41797" alt="image"><br>用户通过数据库服务器的用户接口执行事务。数据库服务器收到事务请求后，首先交由事务分发模块处理。事务分发模块将事务汇总排序，然后依次交由数据处理模块去执行这些事务。如果去年内部的细节，就会发现这是一个非常简洁的数据库集群方案。通过group replication构建的MySQL集群就是这样一个分布式的高可用MySQL系统。整个集群的架构如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/53E2199DB34F47618272939F924E5820/41808" alt="image">  <h2 id="深入理解组复制中事务的执行过程"><a href="#深入理解组复制中事务的执行过程" class="headerlink" title="深入理解组复制中事务的执行过程"></a>深入理解组复制中事务的执行过程</h2>从上文中的模型可以知道，group replication插件中最重要的功能就是事务分发器的功能。group replication中实现的事务分发器和模型中的略有不同。在模型中，假设事务分发器分发的是事务的SQL语句，也就是说事务分发器的处理是在事务执行前。而在group replication中，事务分发器分发的是Binlog Event，事务分发器的处理是在事务执行即将结束的时候。group replication将这称作乐观的事务执行策略，可以带来更好的性能。但是在这种策略下，多个成员的事务可能发生冲突。group replication需要一个冲突检测机制来发现并处理冲突。由于Binlog Event的执行和SQL语句的执行过程是不一样的，group replication就用到异步复制中Binlog Event的执行模块。为了更好地理解group replication事务执行的过程，这里将group replication处理的事务分为本地事务和异地事务。本地事务指的是用户Session中或异步复制线程中执行的事务。异地事务指的是group replication中传播的由Binlog Event构成的事务。<br>根据事务处理过程中的不同处理步骤，group replication中事务分发器的功能划分为以下四部分。</li>
+</ol>
+<ul>
+<li>本地事务控制模块</li>
+<li>成员间的通信模块</li>
+<li>全局事务认证模块</li>
+<li>异地事务执行模块<h3 id="本地事务控制模块"><a href="#本地事务控制模块" class="headerlink" title="本地事务控制模块"></a>本地事务控制模块</h3>MySQL通过API向插件提供了事务执行过程中几个重要阶段的监控接口，group replication通过这些接口来监控和控制接口的执行。MySQL的事务在提交时，内部会分为三个阶段：准备(prepare)阶段、记录Binlog文件阶段和提交(commit)阶段。group replication对本地事务的控制逻辑在before_commit这个接口中执行。before_commit是在事务的prepare阶段之后，写Binlog文件阶段之前被执行的。对本地事务的控制包括以下三个步骤：<h4 id="发送事务信息"><a href="#发送事务信息" class="headerlink" title="发送事务信息"></a>发送事务信息</h4>group replication首先会将事务执行的相关信息打包，通过通信模块的接口发送给本地的通信模块。本地事务控制模块只发送信息，不接收任何信息。因此，这个通信是异步过程。只要本地的通信模块接收了消息就返回成功。发送到其他成员是通信模块的职责。事务信息包括主键信息、数据库快照版本和事务产生的Binlog Events。</li>
+<li>主键信息是Server层生成Binlog Event的时候一同生成的。是否记录主键信息是通过transaction_write_set_extraction变量来控制的。主键信息中记录的并不是主键字段的值，而是字段值加上库名、表名等哈希值。</li>
+<li>数据库快照版本是当前MySQL的全局变量gtid_executed的值。它包含了当前事务提交时所有已经执行了的事务的GTID，代表了当前事务执行时数据库的状态，因此称为数据库的快照版本。</li>
+<li>当发送事务信息时，Binlog Event还没有写入Binlog文件。因此，Binlog Event是从当前线程的Binlog Cache中获取的，而不是依赖于Binlog文件。</li>
+<li>Transaction_context_log_event，本地成员的UUID、主键信息和数据库快照版本会被封装进Transaction_context_log_event中，和事务产生的Binlog Event一起发送出去。Transaction_context_log_event放在其他Binlog Event前面。<h4 id="等待全局事务认证模块的认证结果"><a href="#等待全局事务认证模块的认证结果" class="headerlink" title="等待全局事务认证模块的认证结果"></a>等待全局事务认证模块的认证结果</h4>在事务信息发送成功后，事务会被阻塞，开始等待全局事务认证模块的认证结果。事务认证完成后，全局事务认证模块会唤醒当前事务的线程，让事务继续执行。<h4 id="认证结果的处理"><a href="#认证结果的处理" class="headerlink" title="认证结果的处理"></a>认证结果的处理</h4>这个过程实际上是由MySQL的代码执行的，而不是由group replication的代码执行的。在哪里执行的并不重要，只要理解这个过程就好。事务继续执行后，会检测 认证结果。如果认证成功，就继续提交事务，如果认证失败就会返回错误。然后由MySQL来执行Rollback的逻辑。<h3 id="成员间的通信模块"><a href="#成员间的通信模块" class="headerlink" title="成员间的通信模块"></a>成员间的通信模块</h3>通信模块分为三部分，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/0E5E7CCE172449C6990D237B25C46493/41896" alt="image">  </li>
+</ul>
+<ol>
+<li>本地数据接收部分负责接收本地成员上其他模块的数据发送请求，接收到的数据包被放入本地数据队列等待处理。</li>
+<li>成员间的通信部分负责和其他成员通信。通信工作包括：从本地数据队列读取数据包发送给其他成员，以及接收其他成员发送过来的数据包。各个成员之间的通信使用了Paxos协议，Paxos协议是一个分布式的一致性协议。</li>
+<li>全局数据包发送部分将所有的数据包顺序返回给本地成员上的全局事务认证模块。<br>当各个成员的通信模块接收到上层模块的数据发送请求时，这些并发的数据请求是无序的，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/69AF4FC0CD2B461FA576430FEE91F002/41910" alt="image"><br>3个成员分别有1个数据包，分别是T1、T2和T3产生的数据包。这些并发、无序的数据包会通过Paxos协议汇聚到每个成员上，并且排序。最终每个成员的通信模块都会拥有同样的数据库包，这些数据包会按照同样的顺序发送到各自成员上的全局事务认证模块，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/E89D346C4CE0480E997A46F6598991D8/41920" alt="image"><br>Paxos协议的工作核心就是对所有数据包进行汇聚和排序。为了完成上面的功能，Paxos协议本身会进行三次TCP通信，如下：</li>
+</ol>
+<ul>
+<li>发送数据包给其他成员的通信模块</li>
+<li>其他成员的通信模块回应收到的数据包</li>
+<li>当超过半数的通信模块(包括它自己)回应后，发送消息告诉所有节点这个数据包同步成功。只有当Paxos协议的三个步骤成功完成后通讯模块才会把这个数据包发送给全局认证模块。这就像是两个公司谈合作经办人多轮协商把所有的条款都谈妥没有异议了，然后才通知老板准备签约。<br>为了保证数据按照同样的顺序发送到全局事务认证模块，Paxos协议还会为每个同步成功的数据包分配一个唯一的ID，当各个成员上的通信模块向上层模块发送这些数据包时，会按照数据包的ID以小到大的顺序发送给全局认证模块。这个ID由两部分组成，分别如下：  </li>
+<li>成员序号：每个成员在加入组后，就会获得一个组内成员的唯一序号，这个成员发出的所有数据包都会使用这个成员序号。</li>
+<li>自增序号：每个成员的通信模块都会维护一个自增的序号，按照发送数据包的顺序，给每个数据包分配一个顺序号。<br>如图所示，假设一个组有三个成员，那么顺序号为1的成员上的数据包ID是1:1,2:1,…,N:1。顺序号为2的成员上的数据包ID是1:2,2:2,…,N:2。顺序号为3的成员上的数据包ID是1:3,2:3,…,N:3。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/2E3B711A745D4835804B8C73B3828D5C/41969" alt="image"><br>当向全局认证模块发送这些数据包时，必须按照ID连续发送，不能跳过某个ID的数据包。本质上来说，这是一个轮训(Round Robin)的过程。先发送成员1的第一个数据包，接着发送成员2的第一个数据包，然后发送成员3的第一个数据包，如图所示。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/8C70F6129567449EAAA0402A5BE74797/41980" alt="image"><br>如果在这个过程中，成员2上的数据包还没有同步成功呢？这时候就得等着，直到成员2的第一个数据包同步成功的后，才能返回给全局认证模块，然后继续返回成员3的数据包。假如成员2是空闲的，且本地没有任何事务处理呢？这种情况下，成员2需要发一个空操作指令(NOP)，告诉其他成员跳过ID1:2的数据包。这个指令是当成员2收到ID1:1的数据包同步成功的消息(Paxos的第三个TCP消息)后发出的，如图所示。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/1E24039CABA940DCB555BFFB16C0FAAC/41995" alt="image"><br>以上介绍的只是Paxos协议很少的一部分，如果想详细了解Paxos协议，还是要查阅更多的资料。总结一下，Paxos在通信上的特别如下：  </li>
+<li>数据包同步成功需要三次TCP传输。</li>
+<li>每个数据包都要发送到所有的成员上，因此需要传输多份，传输的数据量会被放大。</li>
+<li>假设数据包发送到其他所有成员的过程是并发进行的，那么数据包同步成功需要的时间是成员间最慢的那条链路上完成三次TCP通信的时间。<br>这些特点决定了group replication在延迟大、带宽窄的网络中的效率会是比较低的。group replication为了提高Paxos对网络的适用性、做了以下优化：  </li>
+<li>使用了LZ4压缩算法对事务信息进行压缩，当数据包的大小超过一个阈值时会被自动压缩。</li>
+<li>Paxos会将多个事务信息封装到一个数据包内进行通信，大大减少了Paxos通信的次数。<h3 id="全局事务认证模块"><a href="#全局事务认证模块" class="headerlink" title="全局事务认证模块"></a>全局事务认证模块</h3>全局事务认证模块有一个消息队列，用来存放所有收到的消息。这些消息主要是事务的Binlog Event，也有一部分状态和控制信息。状态表replication_group_member_stats中的字段COUNT_TRANSATION_IN_QUEUE指的就是这个队列中事务数据。<br>全局事务认证模块的核心任务是做冲突检测。冲突检测是指识别出那些同时修改了同样数据的事务，并做出相应的处理。冲突检测中需要的信息包括如下三点：  </li>
+<li>主键信息。</li>
+<li>事务执行时的数据快照版本。</li>
+<li>执行事务的MySQL服务器的UUID。<h4 id="冲突检测需要的信息"><a href="#冲突检测需要的信息" class="headerlink" title="冲突检测需要的信息"></a>冲突检测需要的信息</h4>group replication的冲突检测中以数据行为单位，两个事务是不是修改了同样的数据，是通过事务所修改的主键值来判断的。上方中有介绍，Server层在产生Binlog Event时，会同时记录所修改的主键信息(库名、表名主键等信息产生的哈希值)。当发现两个事务修改了同样的数据后，如何来判断这两个事务是不是同时执行的呢？这里用到了数据库快照版本。数据库快照版本是数据库的一个瞬时状态，每个写操作都会导致数据库的状态变化，不同的状态用不同的快照版本来表示。快照版本是用GTID来表示的，每个写事务都会产生一个唯一的GTID，这个GTID由全局事务认证模块产生，且在事务提交时会被添加到全局变量gtid_executed中。因此，gtid_executed的内容就是MySQL的数据库快照版本。<br>如下图所示，为数据库快照版本变化的示例图。图中，事务T1开始执行时所基于的数据库快照版本为空，T1提交后的数据库版本变为”group_name:1”,group_name是group replication组的UUID。事务T2的执行则基于”group_name:1”的快照版本，这个数据库的快照版本，主键信息及其MySQL服务器的UUID一起被封装到Transaction_context_log_event上，和其他事务产生的Binlog Event一起发送到全局事务检测模块。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/8375C243E6614C17B5B99222154D8891/42081" alt="image">  <h4 id="冲突检测数据库"><a href="#冲突检测数据库" class="headerlink" title="冲突检测数据库"></a>冲突检测数据库</h4>全局事务认证模块中还维护了一个冲突检测数据库，它是主键哈希+快照版本的列表。快照版本存储的是最后一个修改此主键信息的快照版本加上这个事务的GTID。收到事务信息后，全局事务认证模块会根据Transaction_context_log_event中的主键信息，从冲突检测数据库中检索出所有主键的快照版本和该事务的快照版本进行比对。当前事务的快照版本必须要包含检索出的所有主键快照版本中的GTID，否则就是有冲突。  <h4 id="理解冲突检测的过程"><a href="#理解冲突检测的过程" class="headerlink" title="理解冲突检测的过程"></a>理解冲突检测的过程</h4>下面通过一个例子来理解冲突检测的原理，如图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/E14FC995A3274640812B5B858DEEF447/42271" alt="image"><br>假设当前所有成员的数据库状态是一致的，它们的gtid_executed值都为”group_name:1-100”。这时，DB1上执行了事务T1,T1看到数据库快照版本就是”group_name:1-100”。<blockquote>
+<p>UPDATE t1 SET c2 = 5 WHERE pk = 1;<br>同时，DB2执行了事务T2,T2看到数据库快照版本就是”group_name:1-100”。<br>UPDATE t1 SET c2 = 10 WHERE pk = 1;<br>经过通信模块排序后，T2排在了T1前面，如图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/94B9F228E3FD4295BDE411526066DF49/42098" alt="image"><br>因此，在所有成员全局冲突模块中都是先处理T2,再处理T1。在处理T2时，首先根据Transaction_context_log_event中的主键信息从冲突检测数据库中查找该主键上一次被修改后的快照版本。有可能查到，也不可能查不到。查不到就意味没有冲突。假设冲突检测数据库中的内容如下图所示(为了理解方便，图中主键哈希值用主键值代替)<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/2C2984AF9A8E4880A2B9A5EF5AF6926C/42113" alt="image"><br>从冲突检测数据库中查到此主键上一次被修改后的版本快照是”group_name:1-98”。和T2的快照版本比较得知，T2的快照版本中的GTID集合包含了冲突检测数据中查找到的快照版本的GTID集合。也就意味着，T2在B成员上执行时，上一次该主键的更新已经在B成员上执行了，所以T2和上一次该主键的更新之间是不冲突的。接着，全局事务认证模块会为T2分配一个GTID，并更新冲突检测数据库中此主键的快照版本。假设T2分配的GTID是”group_name:101”,更新后的冲突检测数据库如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/8621CA95B2884616BDA1DF5B1E6DFAB9/42129" alt="image"><br>T2处理完成后，开始下一个事务T1的冲突检测。首先，也是从冲突检测数据库中查找该主键的快照版本，查到的结果是”group_name:101”，和T1的快照版本对比发现，T1的快照版本不包含”group_name:101”，这就可以判定T1和之前一次的主键修改(T2的修改)是同时进行的，是冲突的。</p>
+</blockquote>
+<h4 id="冲突处理"><a href="#冲突处理" class="headerlink" title="冲突处理"></a>冲突处理</h4>冲突检测完成后，全局认证模块接下来的处理是有本地事务和异地事务区分的。Transaction_context_log_event中记录了产生这个事务的MySQL服务器的UUID。根据这个UUID，就能判断出这是一个本地事务还是异地事务，对于本地事务的处理如下：</li>
+<li>如果没有冲突，唤醒这个事务的线程，并且告诉它完成提交操作。</li>
+<li>如果有冲突，唤醒这个事务的线程，并且告诉它发生冲突，需要回滚。</li>
+<li>不论是否有冲突，Binlog Event都会被丢弃。<br>对于异地事务的处理如下：</li>
+<li>如果没有冲突，将这个事务的Binlog Event写入Relay log中，让group_relication_appliter通道去执行。</li>
+<li>如果有冲突，则丢弃这个事务的Binlog Event。<h4 id="冲突检测数据库的清理"><a href="#冲突检测数据库的清理" class="headerlink" title="冲突检测数据库的清理"></a>冲突检测数据库的清理</h4>随着使用时间的越来越长，冲突检测数据库中维护的主键信息会越来越多，这些主键信息将占用巨大的内存。为了减小内存的使用并提高查询效率，全局事务认证模块需要定期的清理冲突检测数据库。如果一个事务已经在所有成员上执行了，其他事务的执行肯定不会和它有冲突，因此这个事务的所有主键信息就可以从冲突检测数据库中移除。主键信息的清理是依据各个成员上的全局变量gtid_executed的GTID集合来做的。全局认证模块启动了一个广播线程，每60s将自己的gtid_executed中的GTID集合广播到所有的成员上。全局事务认证模块收到所有成员的GTID后，取它们的交集。这个交集中包含的就是那些已经在所有成员上执行了的事务GTID集合，称作全局完成的GTID集合。全局事务认证模块会将冲突检测数据库所有主键的快照版本和全局完成的GTID集合进行比对，如果快照版本中的GTID集合是全局完成的GTID集合的子集，则这个主键信息就会从冲突检测数据库中清除掉。<br>replication_group_member_stats表中的TRANSACTION_COMMITED_ALL_MEMBERS显示的就是全局完成的GTID集合。  <h4 id="计算基于主键的逻辑时钟"><a href="#计算基于主键的逻辑时钟" class="headerlink" title="计算基于主键的逻辑时钟"></a>计算基于主键的逻辑时钟</h4>在执行Binlog Event时，group replication采用了基于主键的并发机制。在这种机制中通过主键来判断是否修改了相同的数据，各种情况如下：</li>
+<li>修改了不同数据的事务会安排并发执行。</li>
+<li>修改了相同数据的事务会安排顺序执行。</li>
+<li>DDL不能和任何事务并发执行，必须等待它前面的所有事务执行完毕后才能开始执行，后面的事务也必须要等待DDL执行完毕后，才能开始执行。<br>基于主键的并发机制，刚好可以通过逻辑时钟的方式来表达。因此group replication重用了多线程复制中Logical_clock并发复制的功能。基于主键的并发实现起来很简单，只需要根据主键信息计算出事务的逻辑时间，并更新Gtid_log_event中听last_committed和sequence_number的内容即可。group_replication_applier在执行这些事务时，按照Logical_clock方式进行并发就可以了，不需要任何改动。由于需要用到主键信息，因此计算过程是在冲突检测的过程中完成的。全局事务认证模块维护了一个全局事务的顺序号，它会给每个认证成功的事务分配一个顺序号。这个顺序号就是事务的sequence_number，会存储到冲突检测数据库中。当前事务的last_committed的计算和存储在冲突检测数据库中的sequence_number有关。首先，从冲突检测数据库中找出该事务修改的所有主键的sequence_number，即上一次被修改时的sequence_number，取其中的最大值来作为当前事务的last_committed。<br>假设正在处理的事务如下：<blockquote>
+<p>UPDATE t1 SET c2 = 5 WHERE pk=1 OR pk =2;<br>冲突检测数据库中的顺序如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/A20F24C576B4491586110097130E61B0/42216" alt="image"><br>那么该事务的last_committed是120(120和33的最大值)。如果查不到上次记录，则将last_committed设置为上一次DDL的sequence_number，这保证DDL后面的事务不会和DDL并发执行。如果当前事务是DDL，则last_committed会设置成它自己的sequence_number-1，从而保证DDL前面的所有事务都被执行完后它才会被执行。</p>
+</blockquote>
+<h3 id="异地事务执行模块"><a href="#异地事务执行模块" class="headerlink" title="异地事务执行模块"></a>异地事务执行模块</h3>为了执行异地事务的Binlog Event，group replication会自动创建一个名为group_replication_applier的通道。这个通道的Receiver线程是关闭的，不会从其他成员上去复制Binlog Event。所有的Binlog Event都是由全局事务认证模块通过API写入Relay log的。Binlog Event的执行过程和异步复制没有区别，但是在执行过程中group_replication_applier所执行的事务使用了特权行锁。在对数据加行锁的时候，如果group_replication_applier发现有本地事务已经对数据加了行锁，那么group_replication_applier不会等待本地事务执行完毕，而是立刻将本地事务回滚掉，然后继续执行；而本地事务的Session则会返回错误。这其实很好理解，本地事务和group_replication_applier更新了同样的数据，而且是同时执行的，因此才会返回错误。即便本地事务到了全局事务认证模块，也会因此检测出冲突而被回滚掉。相比而言，由前者回滚本地事务效率更高。<h3 id="事务流程的总结"><a href="#事务流程的总结" class="headerlink" title="事务流程的总结"></a>事务流程的总结</h3>事务在group replication中的执行过程可以总结为三个部分：</li>
+<li>网络传输。</li>
+<li>事务在本地的执行过程。</li>
+<li>事务在异地的执行过程。<h4 id="网络传输"><a href="#网络传输" class="headerlink" title="网络传输"></a>网络传输</h4>group replication通过Paxos协议来传播事务信息。Paxos保证所有的事务信息按照同样的顺序传播到所有的成员上，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/F41CB459A2C742A184F38407634D4BFF/42257" alt="image">  <h4 id="事务在本地成员上的执行过程"><a href="#事务在本地成员上的执行过程" class="headerlink" title="事务在本地成员上的执行过程"></a>事务在本地成员上的执行过程</h4>事务在本地提交时(prepare之后，写Binlog之前)，将事务信息发送至通信模块，然后开始等待事务认证结果。通信模块将事务排序后发送到本地成员的全局认证模块。全局认证模块做完冲突检测后，唤醒该事务继续执行(如果认证成功)或回滚(如果认证失败)，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/262EA905BF1049A6BF0747EBED444562/42274" alt="image">  <h4 id="事务在异地的执行过程"><a href="#事务在异地的执行过程" class="headerlink" title="事务在异地的执行过程"></a>事务在异地的执行过程</h4>通讯模块将事务排序后发到全局事务认证模块。全局认证模块认证成功后，将该事务的Binlog Event写入Relay log，由group_replication_applier通道来执行。如果全局事务认证失败，则会丢弃该事务的Binlog Event，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/AF94CE1CF3F646FF87BD1B4049B240AF/42287" alt="image">  <h2 id="深入理解成员加入组的过程"><a href="#深入理解成员加入组的过程" class="headerlink" title="深入理解成员加入组的过程"></a>深入理解成员加入组的过程</h2>group replication的主要逻辑可以划分为两部分：事务的执行逻辑和成员管理逻辑。上面已经介绍了事务的执行逻辑，下面来介绍成员的管理逻辑。<h3 id="组视图"><a href="#组视图" class="headerlink" title="组视图"></a>组视图</h3>成员管理中有一个很重要的概念叫作组视图(Group View)，或者简称为视图(View)。视图是指group replication组在一段时间内的成员状态。在这个时间段内没有成员变化，即没有成员加入也没有成员退出。如果成员发生了变化，成员状态就变化了，于是它就进入了另外一个视图。不同的视图之间通过视图ID(View ID)来进行区分。视图随时间的变化有先后顺序，因此View ID也是有先后顺序的。View ID被定义为两个部分，分别如下：  </li>
+<li>前缀部分(固定部分)：前缀部分是一个随机数。这个值在组初始化时产生。之后，所有View的前缀部分都使用这个随机数，因此也被称为固定部分。</li>
+<li>顺序号部分：顺序号部分是数值。初始化时，第一个视图的顺序号从1开始，以后每次视图变化顺序号递增。<br>用户可以通过replication_group_member_stats表查看当前的View ID。View ID显示格式如下：<blockquote>
+<p>14870305055874300:2</p>
+</blockquote>
+<h3 id="加入组时视图的切换"><a href="#加入组时视图的切换" class="headerlink" title="加入组时视图的切换"></a>加入组时视图的切换</h3>当一个MySQL服务器加入组中，group replication插件首先会根据group_replication_group_seeds的内容和一个成员(种子成员)建立TCP连接。而种子成员会根据自己的IP白名单检查是否允许其接入。连接建立后，新成员会发送一个加入请求给种子成员，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/5AAD32035BD94793924F14F024565AB5/42326" alt="image"><br>收到请求后，种子成员广播视图变化的消息给所有成员(包括申请加入的成员)，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/E364021100CB465FAA23F3ECB4E47A54/42338" alt="image"><br>各个成员收到消息后开始做视图切换。首先，每个成员都会广播一个状态交换消息出去，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/85B1C1CF87564981A5FD4D1213101D55/42341" alt="image"><br>接着，各个成员开始接收状态交换消息。状态交换消息中包含了成员的当前状态和信息。成员收到状态交换信息后，将消息中的成员信息更新到自己的成员列表中。当收到所有成员中的最后一个状态交换消息时，通信模块将完整的新视图以视图数据包的形式返回给全局事务认证模块进行处理。整个视图的切换过程到此结束，视图切换的整个过程不影响在线成员对外提供服务。<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/C8D5BFBFA1DA44B5AE0CB5752220F0F2/42352" alt="image"><br>离开组时的视图切换和加入组的视图切换过程基本一样，略。<h3 id="View-change-log-event"><a href="#View-change-log-event" class="headerlink" title="View_change_log_event"></a>View_change_log_event</h3>状态交换消息和事务数据包一样都是通过Paxos协议发送的，因此它们之间也是有序的。事务数据包以视图数据包为分界线，划分到不同的视图中。它前面的事务数据包属于前一个视图的事务，而后面的数据包都是属于当前视图中的事务。全局事务认证模块会对每一个视图数据包创建一个View_change_log_event，这个Event会被写入Relay log，然后被执行，最终会出现在Binlog中，因此Binlog里的Event也被View_change_log_event划分到不同的视图中。View_change_log_event里面记录了当前的View ID，还有冲突检测数据库的信息。当记录View_change_log_event到Binlog中时，它会被封装到一个事务中，并且有自己的GTID，包括几个Events。  <blockquote>
+<p>Gtid_log_event;<br>Query_log_event(“BEGIN”)<br>View_change_log_event;<br>Query_log_event(“COMMIT”)</p>
+</blockquote>
+<h3 id="恢复"><a href="#恢复" class="headerlink" title="恢复"></a>恢复</h3>视图切换完成后，成员就正式加入组内。它可以收到当前视图任何事务的数据包，但是视图切换前的数据包是收不到的。所以，在MySQL服务器加入组后，不能立即对外提供服务，而需要执行一些操作将自己缺失的数据从其他成员上复制过来。这个过程叫作恢复(Recovery)。一个成员加入组后，会立即将自己的状态设置为RECOVERING，开始执行恢复的过程。恢复过程分为本地恢复、全局恢复和缓存事务执行三个步骤。<h3 id="本地恢复-Local-Recovery"><a href="#本地恢复-Local-Recovery" class="headerlink" title="本地恢复(Local Recovery)"></a>本地恢复(Local Recovery)</h3>如果这个成员曾经加入过这个组，它的group_replication_applier通道的Relay log中可能还有一些Event没有被执行到数据库中。因此，group replication插件首先会启动group_replication_applier通道，将本地的Binlog Event执行完毕。<h3 id="全局恢复-Global-Recovery"><a href="#全局恢复-Global-Recovery" class="headerlink" title="全局恢复(Global Recovery)"></a>全局恢复(Global Recovery)</h3>本地恢复执行完毕后，开始进行全局恢复。全局恢复是通过group_replication_recovery进行的。group replication插件会随机选择一个在线成员作为这个通道的Master，这个被选择的成员叫作Donor。group replication插件会自动配置group_replication_recovery通道，并且启动这个通道进行复制，复制时使用的是GTID复制。全局恢复有容错能力，如果group_replication_recovery通道的接收线程(Receiver)无法连接到当前的Donor或当前Donor上的Binlog已经删除，则会选择其他成员作为Donor进行复制。在启动group_replication_recovery通道时，group replication插件会告诉它：当碰到View ID等于当前View ID的View_change_log_event时停止。当执行完到这个View_change_log_event后，group_replication_recovery通道会将空上Event中的冲突检测数据库初始化到group replication插件中，然后停止运行，如下图所示：<br><img src="https://note.youdao.com/yws/public/resource/10358468375e69edf5395125053e89c9/xmlnote/DE962A8B547D446DA2D71CD5BB47D0DE/42409" alt="image">  <h3 id="缓存事务执行"><a href="#缓存事务执行" class="headerlink" title="缓存事务执行"></a>缓存事务执行</h3>在执行全局恢复过程的同时，全局事务认证模块还会收到当前视图中产生的事务数据包。这些数据包会被缓存起来直到全局恢复完毕后，全局事务认证模块才开始处理这些事务。当缓存的事务全部执行完毕后，该成员才能设置为ONLINE状态。当然用户也可以让成员在缓存的事务执行之前上线。group replication提供了参数group_replication_recovery_complete_at来控制上线时间。上线不仅仅是状态的改变，在多主模式时，上线意味着只读模式会被关闭，上线后成员就能够接收用户的写操作了。<h3 id="手动恢复"><a href="#手动恢复" class="headerlink" title="手动恢复"></a>手动恢复</h3>虽然group replication的恢复过程是很自动化的，但是并不完美，在有些情况下还是需要手动进行恢复的。  </li>
+<li>当group replication运行了很长时间后，以前的Binlog可能已经删除了，这时就无法自动通过全局恢复来复制数据。</li>
+<li>当要复制的Binlog很大时，使用异步复制的全局恢复效率比较低，不能短时间内完成。<br>当要加入组内的MySQL服务器符合以上情况时，可以先手动将数据库恢复到一个比较接近的时间点，然后再加入group replication组。<h2 id="运维相关问题"><a href="#运维相关问题" class="headerlink" title="运维相关问题"></a>运维相关问题</h2><h3 id="故障切换"><a href="#故障切换" class="headerlink" title="故障切换"></a>故障切换</h3>目前MySQL官方没有发布连接组复制专用的客户端（如MongoDB连接复制集的客户端），在实际的应用中如果发生故障，需要客户端自己来处理。对于单主模式的话，如果主节点发生故障，客户端需要判断新的主节点是谁，然后把写切换到新的主节点，基本上和当前的异步同步的主从切换一样，并且新的主节点是集群自动产生，不可控；多主模式需要在客户端进行节点可用性检查，当其中的一个写节点不可用时自动使用其他可用节点。<h3 id="大事务支持问题"><a href="#大事务支持问题" class="headerlink" title="大事务支持问题"></a>大事务支持问题</h3>目前版本测试并发进行大数据操作和DDL操作时，kill掉大事务，有几率造成集群不可用；在insert into …….select……limit……这种大事务支持不好，可能造成集群不用；多主模式进行DDL操作需要集群内所有节点都为ONLINE状态才可执行，处于ERROR和RECOVERING状态时有几率导致集群堵塞，严重时集群不可用。<h3 id="备份问题"><a href="#备份问题" class="headerlink" title="备份问题"></a>备份问题</h3>在组复制集群其中的一个节点上执行数据库备份时，不管使用mysqldump（这个不能使用–single-transaction参数，生产中不建议使用mysqldump备份集群数据）或是使用xtrabackup的QPS下降40%，并且备份节点基本停止读写。在测试备份文件导入数据时，多主模式要比单主模式慢。推荐使用组复制+异步复制方式，在异步复制的从节点上进行数据库备份。<h3 id="二进制日志删除问题"><a href="#二进制日志删除问题" class="headerlink" title="二进制日志删除问题"></a>二进制日志删除问题</h3>因为组复制同步还是基于二进制日志来进行同步的，清理某个节点bin-log时，必须判定这个日志文件是否还在使用，如果在使用，则绝对不能删除，如果删除，则整个集群直接ERROR。<h3 id="同步延迟问题"><a href="#同步延迟问题" class="headerlink" title="同步延迟问题"></a>同步延迟问题</h3>目前MySQL5.7.20的版本中无法直观查看节点同步延迟，也无法获取延迟多少，不管是时间或事物数，这个打开MySQL的Debug模式，可以获取到节点的延迟事务情况。<br>组复制的延迟对集群是有影响的，一旦出现延迟（默认延迟25000个事务），则启动流量控制（Flow Control），每个周期性能衰减当前的10%,直到集群不可用（但集群节点状态为online），单个节点慢整个集群全慢。<br>集群中的每个节点都会验证并应用该组提交的事务，有关校验和应用程序过程的统计信息对于了解应用程序队列如何增长，已找到多少冲突，检查了多少事务，在哪里提交了哪些事务等等非常有用。表 performance_schema.replication_group_member_stats 提供与事务认证过程的相关信息，但没有延迟信息。相关字段解释请参考文件<h3 id="数据一致性问题"><a href="#数据一致性问题" class="headerlink" title="数据一致性问题"></a>数据一致性问题</h3>不管是多写还是单写，都并非是强一致性，均允许有延迟，他在校验完事务是否冲突后把当前广播到各个节点并确定各个节点收到事务后即进入下一个事物的冲突检测，此时每个节点只是拿到了所有事务的执行序列，保证了事务最终顺序执行，从而保证数据的最终一致性，但同一时刻并非强一致性的。  <h3 id="节点故障脑裂问题"><a href="#节点故障脑裂问题" class="headerlink" title="节点故障脑裂问题"></a>节点故障脑裂问题</h3>节点越多性能损耗越大，三个节点比较合适。节点故障可能有脑裂等问题：如5个节点分布在两个机房，机房间网络断掉分为两个部分，2个集群的机房不可用，3个节点的可用，而三个节点的机房网络有问题，此时如果想使两个节点的机房可用，需要重新对两个节点做集群重组，三个节点的就无法恢复到两个节点中去；三节点中其中一个节点宕机，其他两个正常节点可用，故障节点重启没有加入到集群时，此时这个节点以单实例存在可读写，此时会发生脑裂。<br>###　弹性扩展问题<br>MySQL官方网站提到了组复制的弹性自动扩展，经过实际测试，这种扩展在生产中是不现实的。可用于生产的弹性扩展要求新加入一个集群，集群中的数据完全由集群来完成自动同步，但由于组复制是基于二进制日志来进行同步的，生产中是不可能完整保留全部的二进制日志，在新加入的节点需要先备份出集群的全量数据，然后根据同步位置去追事务达到数据的一致后节点状态online状态，其实和之前异步同步搭建主从一样。并且官方提示如果恢复时的延迟过大，可能也无法正常达到追到最新数据的位置。<h3 id="客户端连接问题"><a href="#客户端连接问题" class="headerlink" title="客户端连接问题"></a>客户端连接问题</h3>官方说明中关于故障处理的时候有一句话：组复制不处理客户端故障切换，它必须由应用程序本身，连接器或中间件框架（如代理或路由器）处理。<h2 id="FAQ"><a href="#FAQ" class="headerlink" title="FAQ"></a>FAQ</h2>参考<a href="https://dev.mysql.com/doc/refman/5.7/en/group-replication-frequently-asked-questions.html" target="_blank" rel="noopener">官方</a>文档<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2>目前MGR还不太成熟,但为MySQL的发展指明了方向,相信在未来的MySQL版本中,MGR能够越来越完善.</li>
+</ul>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
   </section>
 
   
@@ -660,7 +1637,7 @@
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">2</span>
+                  <span class="site-state-item-count">3</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -671,7 +1648,7 @@
               
               <div class="site-state-item site-state-categories">
                 
-                  <span class="site-state-item-count">1</span>
+                  <span class="site-state-item-count">2</span>
                   <span class="site-state-item-name">分类</span>
                 
               </div>
@@ -682,7 +1659,7 @@
               
               <div class="site-state-item site-state-tags">
                 
-                  <span class="site-state-item-count">1</span>
+                  <span class="site-state-item-count">4</span>
                   <span class="site-state-item-name">标签</span>
                 
               </div>

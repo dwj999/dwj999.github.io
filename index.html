@@ -276,6 +276,354 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://dwj999.github.io/MySQL-TimeOut分析.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jiessie">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/jiessie.png">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Jiessie's' Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/MySQL-TimeOut分析.html" itemprop="url">MySQL TimeOut分析</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-08-05T11:23:10+08:00">
+                2018-08-05
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index">
+                    <span itemprop="name">MySQL</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  
+                </span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">
+                  
+                </span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+      
+      
+
+      
+        
+          
+            <h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>在做日常mysql数据库维护过程，时长会遇到关于mysql timeout的相关报错，了解mysql的连接过程和常见的错误类型，知己知彼，可以更好去运维mysql，做到心中有数。</p>
+<h2 id="MySQL连接参数"><a href="#MySQL连接参数" class="headerlink" title="MySQL连接参数"></a>MySQL连接参数</h2><p>和网络超时相关的参数，这里做下简单说明：</p>
+<ul>
+<li><p>interactive_timeout</p>
+<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">服务器在关闭之前等待交互式连接的超时时间，交互式客户端定义为在mysql_real_<span class="keyword">connect</span><span class="params">()</span>中使用CLIENT_INTERACTIVE选项的客户端。像mysql客户端是交互式客户端。</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>wait_timeout</p>
+<figure class="highlight less"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">服务器关闭非交互式连接之前等待活动的秒数，在线程启动时，根据全局<span class="selector-tag">wait_timeout</span>值或全局<span class="selector-tag">interactive_timeout</span>值初始化会话<span class="selector-tag">wait_timeout</span>值，取决于客户端类型(由mysql_real_connect()的连接选项CLIENT_INTERACTIVE定义)。像<span class="selector-tag">java</span>使用的<span class="selector-tag">jdbc</span>连接，<span class="selector-tag">php</span>使用<span class="selector-tag">pdo</span>连接等都是非交互式连接。</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>net_read_timeout</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">在终止读之前，从一个连接获得数据而等待的时间秒数；当服务正在从客户端读取数据时，net_read_timeout控制何时超时。例如<span class="keyword">load</span> <span class="keyword">data</span> <span class="keyword">local</span> <span class="keyword">infile</span>语句。</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>net_write_timeout</p>
+<figure class="highlight maxima"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">在终止写之前，等待多少秒把<span class="built_in">block</span>写到连接，当服务正在写数据到客户端时，net_write_timeout控制何时超时</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>connect_timeout</p>
+<figure class="highlight applescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">在连接认证阶段的网络交互超时时间(<span class="keyword">ref</span> login_connection)。</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h2 id="MySQL连接过程"><a href="#MySQL连接过程" class="headerlink" title="MySQL连接过程"></a>MySQL连接过程</h2><p>其中</p>
+<ul>
+<li>connect_timeout    在获取连接阶段（authenticate）起作用</li>
+<li>interactive_timeout和wait_timeout    在连接空闲阶段（sleep）起作用</li>
+<li>net_read_timeout和net_write_timeout    则是在连接繁忙阶段（query）起作用。<h3 id="mysql通信协议"><a href="#mysql通信协议" class="headerlink" title="mysql通信协议"></a>mysql通信协议</h3>mysql 客户端和服务端之间的通信协议是”半双工”， 在任何一个时刻，要么是由服务端向客户端发送数据，要么是由客户端向服务端发送数据，这两个动作不能同时发生。参数max_allowed_packet在做导入数据的时候，net_buffer_length在缓冲数据的时候就很重要了。<h3 id="connect-timeout"><a href="#connect-timeout" class="headerlink" title="connect_timeout"></a>connect_timeout</h3><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Connect_timeout</span><br><span class="line">The number of seconds that the mysqld<span class="built_in"> server </span>waits <span class="keyword">for</span> a connect packet before responding with Bad handshake</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>MySQL连接一次连接需求经过6次“握手”方可成功，任意一次“握手”失败都有可能导致连接失败，前三次握手可以简单理解为TCP建立连接所必须的三次握手，MySQL无法控制，更多的受制于不TCP协议的不同实现，后面的三次握手过程超时与connect_timeout有关。<br><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/28BE2AB00D3448B4A755502EC85AEDEC/56300" alt="image"></p>
+<p>建立连接步骤：</p>
+<ol>
+<li>客户端向DB发起TCP握手</li>
+<li>三次握手成功，由DB发送HandShake信息，这个Packet里面包含了MySql的能力、加密seed等信息。</li>
+<li>客户端根据HandShake包里面的加密seed对MySql登录密码进行摘要后，构造Auth认证包发送给DB。</li>
+<li>DB接收到客户端发过来的Auth包后会对密码摘要进行比对，从而确认是否能够登录。如果能，则发送Okay包返回。</li>
+<li>客户端与DB的连接至此完毕。</li>
+</ol>
+<h3 id="net-read-timeout-amp-amp-net-write-timeout"><a href="#net-read-timeout-amp-amp-net-write-timeout" class="headerlink" title="net_read_timeout &amp;&amp; net_write_timeout"></a>net_read_timeout &amp;&amp; net_write_timeout</h3><p>当connect建立后，读取命令的流程如下：</p>
+<ol>
+<li>read_packet    通过函数my_net_read读取数据包，如果一次读不完成，则调用函数net_read_raw_loop进行循环读取，读取的超时由wait_timeout决定<br>1）    会先读取packet header，一个普通的packet header包含4个字节，压缩协议下则另外再加3个字节<br>2）    再从packet header中提取剩下的packet长度，继续从socket读取</li>
+<li>vio_read_buff    vio封装了所有对socket的操作,当read_packet完成后，进入到vio相关的函数做封装处理，包括vio_init, vio_read_buffer,vio_read等。</li>
+<li>my_net_write    mysql通过read_packet做过相关处理后，通过my_net_write函数将数据先拷贝到NET缓冲区，当长度大于MAX_PACKET_LENGTH(即4MB-1字节)会对Packet进行拆分成多个packet。每个Packet的头部都会留4个字节，其中：1~3字节，存储该packet的长度，第4个字节存储当前的packet的序号，每存储一次后递增net-&gt;pkt_nr。<br>每个Net对象有一个Buff(net-&gt;buff)，即将发送的数据被拷贝到这个buffer中，当Buffer满时需要立刻发出到客户端。如果Buffer足够大，则只做memcpy操作。net-&gt;write_pos被更新到写入结束的位置偏移量 (net_write_buff)。<br>如果一次写入的数据被拆分成多个Packet，那么net-&gt;pkt_nr也对应的递增多次. pkt_nr的作用是在客户端解析时，防止包发送乱序。</li>
+<li>net_flush    在my_net_write函数中，如果net-&gt;buff不够用，已经会做网络写了，net_flush最终保证所有在buff中的数据被写到网络。</li>
+<li>net_write_raw_loop    当packet准备好发送后，调用函数net_write_raw_loop开始进行数据发送。<br>1）    在发送模式受vio-&gt;write_timeout影响(通过参数net_write_timeout控制)；当该参数被设置成大于等于0时，使用非阻塞模式send数据包(MSG_DONTWAIT)<br>2）    若网络发送被中断（EINTR），会去尝试重传<br>3）    使用非阻塞模式send，每次并不保证数据全部发送完毕，因此需要循环的调用直到所有的数据都发送完毕<br>4）    当输出缓冲区满时，获得错误码EWOULDBLOCK/EAGAIN,则阻塞等待(vio_socket_io_wait)，最大等待时间为net_write_timeout，超时则返回错误</li>
+</ol>
+<h3 id="interactive-timeout-amp-amp-wait-timeout"><a href="#interactive-timeout-amp-amp-wait-timeout" class="headerlink" title="interactive_timeout &amp;&amp; wait_timeout"></a>interactive_timeout &amp;&amp; wait_timeout</h3><p>当query处理完成后，连接会进入到空闲阶段，此时受interactive_timeout和wait_timeout控制。关于interactive_timeout和wait_timeout，session和global有继承关系，可以自己测试，这里有篇<a href="http://blog.itpub.net/22664653/viewspace-2143671/" target="_blank" rel="noopener">文章</a>，测试的很详细。</p>
+<h2 id="MySQL超时类型"><a href="#MySQL超时类型" class="headerlink" title="MySQL超时类型"></a>MySQL超时类型</h2><h3 id="Got-timeout-reading-communication-packets"><a href="#Got-timeout-reading-communication-packets" class="headerlink" title="Got timeout reading communication packets"></a>Got timeout reading communication packets</h3><h4 id="连接超时"><a href="#连接超时" class="headerlink" title="连接超时"></a>连接超时</h4><p>设置interactive_timeout和wait_timeout，使用mysql客户端连接，等待设置的超时时间后被mysql kill掉，在日志观察详情</p>
+<h5 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h5><p>设置interactive_timeout和wait_timeout</p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/C6CC5EA5C719496F8FDB4CFD3DE73608/56333" alt="image"></p>
+<h5 id="观察日志"><a href="#观察日志" class="headerlink" title="观察日志"></a>观察日志</h5><p>通过观察error log查看连接是否断开</p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/73D6BEFFA26143E68AD079487683D584/56342" alt="image"></p>
+<p>其中，连接的thread_id为2885，超过10s后断开，出现<font color="FF0000"><b>日志详情</b></font><br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T10:</span><span class="number">11</span>:<span class="number">48.650754</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">2885</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">2885</span> to <span class="string">db:</span> <span class="string">'unconnected'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got timeout reading communication packets).</span><br></pre></td></tr></table></figure></p>
+<h4 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/communication-errors.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
+<h3 id="Got-an-error-reading-communication-packets"><a href="#Got-an-error-reading-communication-packets" class="headerlink" title="Got an error reading communication packets"></a>Got an error reading communication packets</h3><h4 id="客户端异常退出-数据包异常"><a href="#客户端异常退出-数据包异常" class="headerlink" title="客户端异常退出(数据包异常)"></a>客户端异常退出(<font color="FF0000"><b>数据包异常</b></font>)</h4><p>使用pt-kill工具监控mysql的语句，通过在mysql确认pt-kill守护进程存在，kill掉此进程，观察日志的详情</p>
+<h5 id="准备-1"><a href="#准备-1" class="headerlink" title="准备"></a>准备</h5><ol>
+<li>pt-kill安装<br>安装pt-kill工具，测试机使用ubuntu 16.04机器，直接使用以下命令：<figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget -c https:<span class="comment">//www.percona.com/downloads/percona-toolkit/3.0.10/binary/debian/xenial/x86_64/percona-toolkit_3.0.10-1.xenial_amd64.deb</span></span><br><span class="line">dpkg -<span class="selector-tag">i</span> percona-toolkit_3.<span class="number">0.10</span>-<span class="number">1</span><span class="selector-class">.xenial_amd64</span><span class="selector-class">.deb</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h5 id="pt-kill测试"><a href="#pt-kill测试" class="headerlink" title="pt-kill测试"></a>pt-kill测试</h5><ol>
+<li>运行pt-kill进程<br>命令：<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> localhost <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql/data/mysql.sock</span> <span class="params">--match-host=</span><span class="string">"127.0.0.1|localhost"</span> <span class="params">--match-user=</span><span class="string">"root"</span> <span class="params">--match-db=</span><span class="string">"sysbench|test"</span> <span class="params">--match-command=</span><span class="string">"Query"</span> <span class="params">--match-state=</span><span class="string">"statistics"</span> <span class="params">--match-info=</span><span class="string">"(?i-xsm:select)"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1  <span class="params">--kill-query</span> <span class="params">--daemonize</span> <span class="params">--print</span> <span class="params">--log=/tmp/pt-kill</span>.log</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/497DD7C631994E3CACA95F53B6F9D19F/56374" alt="image"></p>
+<ol start="2">
+<li>查看pt-kill进程</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/A945DA8589E04A3E91FE95F2F35ED1A1/56379" alt="image"></p>
+<ol start="3">
+<li>查看mysql相关pt-kill进程</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6A098DC8A1514D07B8D6482ABA838CC9/56384" alt="image"></p>
+<ol start="4">
+<li>Kill掉pt-kill进程</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/094EE5CC63664D248475A9738DBABA62/56389" alt="image"></p>
+<ol start="5">
+<li>观察日志<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T15:</span><span class="number">21</span>:<span class="number">32.254962</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">62476</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">62476</span> to <span class="string">db:</span> <span class="string">'unconnected'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error readin</span><br><span class="line">g communication packets).</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/75F0451B07D54F899E369FF2C4C9634B/56395" alt="image"></p>
+<h4 id="网络错误"><a href="#网络错误" class="headerlink" title="网络错误"></a>网络错误</h4><h5 id="准备-2"><a href="#准备-2" class="headerlink" title="准备"></a>准备</h5><p>使用linux自带的tc命令篡改数据包，设置网卡随机产生30%的<font color="FF0000"><b>损坏数据包</b></font>，也可使用tc的其他场景，比如<font color="FF0000"><b>数据包重复</b></font>等待去做各种测试，这里仅使用2种场景分别测试损坏数据包时，是否产生Got an error writing communication packets的情况</p>
+<ol>
+<li>设置tc数据包修改: 命令，由于测试的机器包括多块网卡，这里全部设置：<figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tc  qdisc  <span class="keyword">add</span><span class="bash">  dev  eth0  root  netem  corrupt  30% </span></span><br><span class="line"><span class="bash">tc  qdisc  add  dev  eth1  root  netem  corrupt  30%</span></span><br><span class="line"><span class="bash">tc  qdisc  add  dev  lo  root  netem  corrupt  30%</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/36C7DF3E22D346D888ED42F891EDC9B8/56411" alt="image"></p>
+<ol start="2">
+<li>ping结果查看: 通过ping查看，tc的设置已经生效，出现了损坏数据包</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/B5DEE10537C14862AB79F5E43FB5E8CE/56419" alt="image"></p>
+<h5 id="sysbench测试"><a href="#sysbench测试" class="headerlink" title="sysbench测试"></a>sysbench测试</h5><p>通过在sysbench压测过程中，人工设置，模拟网络出现问题的情况，观察日志</p>
+<ol>
+<li>sysbench压测<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/usr/local/bin/sysbench <span class="attribute">--db-driver</span>=mysql <span class="attribute">--mysql-socket</span>=/opt/mysql/data/mysql.sock <span class="attribute">--tables</span>=1 <span class="attribute">--table_size</span>=1000000 <span class="attribute">--report-interval</span>=10 <span class="attribute">--time</span>=3600 <span class="attribute">--mysql-port</span>=3306 <span class="attribute">--mysql-user</span>=root <span class="attribute">--mysql-password</span>=111111 <span class="attribute">--mysql-db</span>=sysbench <span class="attribute">--mysql-host</span>=10.30.167.90 <span class="attribute">--max-requests</span>=0 /usr/local/share/sysbench/oltp_read_write.lua <span class="attribute">--threads</span>=4 run</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>压测结果：</p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/5841D572118D48FDA7E332AA6EDA11FA/56431" alt="image"></p>
+<ol start="2">
+<li>观察error log</li>
+</ol>
+<p>已经出现了Got an error writing communication packets相关告警信息<br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.858793</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65764</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65764</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.899059</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65767</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65767</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.899260</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65765</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65765</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.899339</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65766</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65766</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br></pre></td></tr></table></figure></p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6A63517EECD04706BD7573A981A244B0/56445" alt="image"></p>
+<h5 id="php测试"><a href="#php测试" class="headerlink" title="php测试"></a>php测试</h5><p>通过以运行php代码的形式来访问数据，人工设置，模拟网络出现问题的情况，观察日志</p>
+<ol>
+<li>php代码运行<br>这里以互联网在线模拟为例子，地址：<a href="https://www.dooccn.com/php/" target="_blank" rel="noopener">https://www.dooccn.com/php/</a></li>
+</ol>
+<p>代码详情：<br><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="php"><span class="meta">&lt;?php</span></span></span><br><span class="line"><span class="php">header(<span class="string">'content-type:text/html;charset=utf-8'</span>);</span></span><br><span class="line"><span class="php"><span class="keyword">try</span> &#123;  </span></span><br><span class="line"><span class="php">    $db = <span class="keyword">new</span> PDO(<span class="string">'mysql:host=118.190.67.67;dbname=mysql'</span>, <span class="string">'root'</span>, <span class="string">'xxx'</span>);  </span></span><br><span class="line"><span class="php">    <span class="comment">//查询  </span></span></span><br><span class="line"><span class="php">	$rows = $db-&gt;query(<span class="string">'SELECT sleep(100)'</span>)-&gt;fetch(PDO::FETCH_ASSOC);</span></span><br><span class="line"><span class="php">	$rs = <span class="keyword">array</span>();</span></span><br><span class="line"><span class="php">    <span class="keyword">foreach</span>($rows <span class="keyword">as</span> $row) &#123;  </span></span><br><span class="line"><span class="php">        $rs[] = $row; </span></span><br><span class="line"><span class="php">    &#125;  </span></span><br><span class="line"><span class="php">    $db = <span class="keyword">null</span>;  </span></span><br><span class="line"><span class="php">&#125; <span class="keyword">catch</span> (PDOException $e) &#123;  </span></span><br><span class="line"><span class="php">    <span class="keyword">print</span> <span class="string">"Error!: "</span> . $e-&gt;getMessage() . <span class="string">"&lt;br/&gt;"</span>;  </span></span><br><span class="line"><span class="php">    <span class="keyword">die</span>();  </span></span><br><span class="line"><span class="php">&#125;</span></span><br><span class="line"><span class="php">print_r($rs);</span></span><br></pre></td></tr></table></figure></p>
+<ol start="2">
+<li>观察error log</li>
+</ol>
+<p>已经出现了Got an error writing communication packets相关告警信息<br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">37</span>:<span class="number">31.183490</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">66089</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">66089</span> to <span class="string">db:</span> <span class="string">'mysql'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'106.14.17.222'</span> (Got an error reading communication packets).</span><br></pre></td></tr></table></figure></p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/C0ED8A660BF64331838CD739A8640316/56460" alt="image"></p>
+<h4 id="max-prepared-stmt-count"><a href="#max-prepared-stmt-count" class="headerlink" title="max_prepared_stmt_count"></a>max_prepared_stmt_count</h4><ul>
+<li>max_prepared_stmt_count<br>此参数限制了同一时间在mysqld上所有session中prepared 语句的上限。一般做压力测试的prepare阶段可以会遇到此参数设置较小的问题，同时日志中会返回Got an error reading communication packets的错误，这里不再测试，在做压力测试时，需要将此参数设置大些。</li>
+</ul>
+<h5 id="准备-3"><a href="#准备-3" class="headerlink" title="准备"></a>准备</h5><ol>
+<li>设置max_prepared_stmt_count</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6A39D10887534314BEA965FC5FAC99E7/56474" alt="image"></p>
+<h5 id="sysbench测试-1"><a href="#sysbench测试-1" class="headerlink" title="sysbench测试"></a>sysbench测试</h5><ol>
+<li><p>运行压力测试</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/usr/local/bin/sysbench <span class="attribute">--db-driver</span>=mysql <span class="attribute">--mysql-socket</span>=/opt/mysql/data/mysql.sock <span class="attribute">--tables</span>=1 <span class="attribute">--table_size</span>=1000000 <span class="attribute">--report-interval</span>=10 <span class="attribute">--time</span>=3600 <span class="attribute">--mysql-port</span>=3306 <span class="attribute">--mysql-user</span>=root <span class="attribute">--mysql-password</span>=111111 <span class="attribute">--mysql-db</span>=sysbench <span class="attribute">--mysql-host</span>=10.30.167.90 <span class="attribute">--max-requests</span>=0 /usr/local/share/sysbench/oltp_read_write.lua <span class="attribute">--threads</span>=4 run</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看sysbench日志</p>
+</li>
+</ol>
+<p>在11.04的时候运行的压力测试</p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6F048BDE27024754AF32AF82ECBE97AF/56485" alt="image"></p>
+<ol start="3">
+<li>查看mysql log<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T11:</span><span class="number">04</span>:<span class="number">07.696809</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">5366</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">5366</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error reading communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T11:</span><span class="number">04</span>:<span class="number">07.696884</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">5365</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">5365</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error reading communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T11:</span><span class="number">04</span>:<span class="number">07.696959</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">5364</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">5364</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error reading communication packets).</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/D648C5A248654AF1A0C9BF72CC2D6115/56493" alt="image"></p>
+<h4 id="其他-1"><a href="#其他-1" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/communication-errors.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
+<h3 id="Lost-connection-to-MySQL-server-during-query"><a href="#Lost-connection-to-MySQL-server-during-query" class="headerlink" title="Lost connection to MySQL server during query"></a>Lost connection to MySQL server during query</h3><h4 id="超时connect-timeout"><a href="#超时connect-timeout" class="headerlink" title="超时connect_timeout"></a>超时connect_timeout</h4><p>使用linux自带的tc命令设置网络延迟，达到测试所需要的效果</p>
+<h5 id="准备-4"><a href="#准备-4" class="headerlink" title="准备"></a>准备</h5><ol>
+<li>设置tc数据包延迟：命令，由于测试的机器包括多块网卡，这里全部设置：<figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tc qdisc <span class="keyword">add</span><span class="bash"> dev eth1 root netem delay 11000ms</span></span><br><span class="line"><span class="bash">tc qdisc add dev eth0 root netem delay 11000ms</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/4A4FA6BF496442FC9ED50867A33FED58/56511" alt="image"></p>
+<h5 id="登录连接测试"><a href="#登录连接测试" class="headerlink" title="登录连接测试"></a>登录连接测试</h5><p>通过远程连接其他mysql服务器，查看登录效果，超过了默认connect_timeout的10s，报Lost connection to MySQL server during query错误</p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/29180DCBD601443D976546FB750E92C3/56517" alt="image"></p>
+<h4 id="客户端异常退出-数据包正常"><a href="#客户端异常退出-数据包正常" class="headerlink" title="客户端异常退出(数据包正常)"></a>客户端异常退出(<font color="FF0000"><b>数据包正常</b></font>)</h4><p>开启2个session窗口，连接同一个mysql实例，第1个session开启查询，第2个session去kill掉第一个session</p>
+<h5 id="准备-5"><a href="#准备-5" class="headerlink" title="准备"></a>准备</h5><ol>
+<li>Session1开启查询</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/581A709431A84099966FDC4E86E468ED/56529" alt="image"></p>
+<h5 id="手动kill"><a href="#手动kill" class="headerlink" title="手动kill"></a>手动kill</h5><ol>
+<li>Session2查看processlist</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/A9AD3AE7828E4E268D51DE32F467CED8/56537" alt="image"></p>
+<ol start="2">
+<li>session2 手动kill session1连接</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/61DD1014F59247F49A80BB874EDC2081/56542" alt="image"></p>
+<ol start="3">
+<li>session1查看查询</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/7634D7F4633C4B6B9B91B68BD9D509C1/56544" alt="image"></p>
+<h4 id="其他-2"><a href="#其他-2" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/error-lost-connection.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
+<h3 id="MySQL-server-has-gone-away"><a href="#MySQL-server-has-gone-away" class="headerlink" title="MySQL server has gone away"></a>MySQL server has gone away</h3><h4 id="MySQL-server-has-gone-away-1"><a href="#MySQL-server-has-gone-away-1" class="headerlink" title="MySQL server has gone away"></a>MySQL server has gone away</h4><p>设置mysql的interactive_timeout，使用mysql客户端开启一个窗口</p>
+<h5 id="准备-6"><a href="#准备-6" class="headerlink" title="准备"></a>准备</h5><ol>
+<li>设置interactive_timeout的值</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/A41E122F30354DB197F92226C824E448/56564" alt="image"></p>
+<h5 id="执行查询"><a href="#执行查询" class="headerlink" title="执行查询"></a>执行查询</h5><ol>
+<li>在同一窗口内执行查询select sleep(10)</li>
+</ol>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/46EED1F1BC714F3EB49CCB9B4FCB3630/56567" alt="image"></p>
+<ol start="2">
+<li>等待超过interactive_timeout时间后，再次执行查询</li>
+</ol>
+<p>已经出现的错误日志：MySQL server has gone away</p>
+<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/EEF952361B1F44BDB719401996058B4C/56569" alt="image"></p>
+<h4 id="其他-3"><a href="#其他-3" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/gone-away.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><figure class="highlight dts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="symbol">http:</span><span class="comment">//mysql.taobao.org/monthly/2016/07/04/</span></span><br><span class="line"><span class="symbol">http:</span><span class="comment">//mysql.taobao.org/monthly/2017/05/04/</span></span><br><span class="line"><span class="symbol">http:</span><span class="comment">//www.importnew.com/29055.html</span></span><br><span class="line"><span class="symbol">https:</span><span class="comment">//www.cnblogs.com/cchust/p/5025880.html</span></span><br><span class="line"><span class="symbol">https:</span><span class="comment">//my.oschina.net/alchemystar/blog/833598</span></span><br></pre></td></tr></table></figure>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+<div>
+  
+</div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://dwj999.github.io/MySQL启动配置文件搜索顺序解析.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -3602,206 +3950,13 @@
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://dwj999.github.io/hexo-next-在github上搭建个人博客.html">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Jiessie">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/jiessie.png">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Jiessie's' Blog">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/hexo-next-在github上搭建个人博客.html" itemprop="url">hexo next 在github上搭建个人博客</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2013-07-12T15:56:07+08:00">
-                2013-07-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/工具/" itemprop="url" rel="index">
-                    <span itemprop="name">工具</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-            <div class="post-wordcount">
-              
-                
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-file-word-o"></i>
-                </span>
-                
-                  <span class="post-meta-item-text">字数统计&#58;</span>
-                
-                <span title="字数统计">
-                  
-                </span>
-              
-
-              
-                <span class="post-meta-divider">|</span>
-              
-
-              
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-clock-o"></i>
-                </span>
-                
-                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
-                
-                <span title="阅读时长">
-                  
-                </span>
-              
-            </div>
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-      
-      
-
-      
-        
-          
-            <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>目前网上的很多平台都提供了博客功能，如csdn，51cto，cnblog，iteye等等，只要你想写博客，这些平台都可以选择。只需注册个帐号，就可以写博客，实现比较简单，但是局限性也很大，风格千篇一律，没有个性化，扩展也稍麻烦。并且，广告很多，这点很受不了。在此选择了hexo+next+github建立个人的博客平台。</p>
-<h2 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h2><p>github：<a href="https://github.com/dwj999" target="_blank" rel="noopener">https://github.com/dwj999</a><br>发布平台：centos6.5 x86_64<br>发布工具：git<br>编写平台：windows7 x86_64<br>编写工具：有道云笔记<br>框架：hexo<br>主题：next </p>
-<h2 id="安装Node-js"><a href="#安装Node-js" class="headerlink" title="安装Node.js"></a>安装Node.js</h2><p>操作系统为centos6.5，首先删除旧版本<br><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum -y <span class="builtin-name">remove</span> nodejs</span><br></pre></td></tr></table></figure></p>
-<p>node使用最新版本，下载源码包<br><figure class="highlight crmsh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">wget https://nodejs.org/dist/v8.<span class="number">1.4</span>/<span class="keyword">node</span><span class="title">-v8</span>.<span class="number">1.4</span>-linux-x64.tar.xz  </span><br><span class="line">tar -xvJf <span class="keyword">node</span><span class="title">-v8</span>.<span class="number">1.4</span>-linux-x64.tar.xz  </span><br><span class="line">mv <span class="keyword">node</span><span class="title">-v8</span>.<span class="number">1.4</span>-linux-x64 /usr/local/<span class="keyword">node</span><span class="title"></span></span><br></pre></td></tr></table></figure></p>
-<p>配置系统环境变量<br><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vim /etc<span class="built_in">/profile </span> </span><br><span class="line">在底部添加 PATH 变量  </span><br><span class="line"><span class="builtin-name">export</span> <span class="attribute">PATH</span>=<span class="variable">$PATH</span>:/usr/local/node/bin  </span><br><span class="line">最后保存并使其生效即可  </span><br><span class="line">source /etc<span class="built_in">/profile </span> </span><br><span class="line">查看版本：node -v</span><br></pre></td></tr></table></figure></p>
-<p><img src="http://note.youdao.com/yws/public/resource/07bf646071b1146a82f5002fd9e53bcd/xmlnote/B1ED873C2C8143B2877B0AB88A07BC62/30674" alt="image">  </p>
-<h2 id="安装Git-已安装可跳过"><a href="#安装Git-已安装可跳过" class="headerlink" title="安装Git(已安装可跳过)"></a>安装Git(已安装可跳过)</h2><figure class="highlight cmake"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum <span class="keyword">install</span> git-core</span><br></pre></td></tr></table></figure>
-<h2 id="安装Hexo"><a href="#安装Hexo" class="headerlink" title="安装Hexo"></a>安装Hexo</h2><p>这里以我的github为例，地址为：<a href="https://github.com/dwj999" target="_blank" rel="noopener">https://github.com/dwj999</a><br><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">创建目录  </span><br><span class="line">mkdir /hwdata/dwj999  </span><br><span class="line">切换目录  </span><br><span class="line">cd /hwdata/dwj999  </span><br><span class="line">安装 Hexo  </span><br><span class="line">npm<span class="built_in"> config </span><span class="builtin-name">set</span><span class="built_in"> user </span>0  </span><br><span class="line">npm<span class="built_in"> config </span><span class="builtin-name">set</span> unsafe-perm <span class="literal">true</span>  </span><br><span class="line">npm install -g hexo-cli  </span><br><span class="line">初始化 Hexo(如果报Error: ENOENT: <span class="literal">no</span> such file <span class="keyword">or</span> directory, uv_cwd,可能是删除的旧版本nodejs导致,重启服务器再试) </span><br><span class="line">hexo init  </span><br><span class="line">生成静态网页</span><br><span class="line">hexo generate</span><br></pre></td></tr></table></figure></p>
-<h2 id="安装插件"><a href="#安装插件" class="headerlink" title="安装插件"></a>安装插件</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">npm <span class="keyword">install</span> hexo-generator-<span class="keyword">index</span> <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-generator-<span class="keyword">archive</span> <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-generator-<span class="keyword">category</span> <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-generator-tag <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-<span class="keyword">server</span> <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-deployer-git <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-deployer-heroku <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-deployer-rsync <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-deployer-openshift <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-renderer-marked <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-renderer-stylus <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-generator-feed <span class="comment">--save  </span></span><br><span class="line">npm <span class="keyword">install</span> hexo-generator-sitemap <span class="comment">--save</span></span><br></pre></td></tr></table></figure>
-<p>目录结构<br><figure class="highlight 1c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">|-- _config.yml  </span></span><br><span class="line"><span class="string">|-- db.json  </span></span><br><span class="line"><span class="string">|-- node_modules  </span></span><br><span class="line"><span class="string">|-- package.json  </span></span><br><span class="line"><span class="string">|-- package-lock.json  </span></span><br><span class="line"><span class="string">|-- public  </span></span><br><span class="line"><span class="string">|-- scaffolds  </span></span><br><span class="line"><span class="string">|-- source  </span></span><br><span class="line">    <span class="string">|-- _posts  </span></span><br><span class="line"><span class="string">|-- themes</span></span><br></pre></td></tr></table></figure></p>
-<p>目录结构说明<br><figure class="highlight 1c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">_config.yml <span class="meta">#全局配置文件，网站的很多信息都在这里配置，诸如网站名称，副标题，描述，作者，语言，主题，部署等等参数。请参考：https:<span class="comment">//hexo.io/zh-cn/docs/configuration.html</span></span></span><br><span class="line">db.json <span class="meta">#缓存文件</span></span><br><span class="line">node_modules <span class="meta">#hexo插件</span></span><br><span class="line">package.json <span class="meta">#hexo框架的参数</span></span><br><span class="line">package-lock.json <span class="meta">#根据package.json自动创建锁定依赖版本，删掉会重新创建</span></span><br><span class="line">public  <span class="meta">#生成的静态网页文件</span></span><br><span class="line">scaffolds   <span class="meta">#模板文件夹，请参考：https:<span class="comment">//hexo.io/zh-cn/docs/writing.html</span></span></span><br><span class="line">source  <span class="meta">#资源文件夹，用于存放用户资源。旧版本有两个文件夹，_drafts和_posts。新版本只有_posts，用于存放博客的正文。</span></span><br><span class="line">themes  <span class="meta">#网站主题目录，请参考：https:<span class="comment">//hexo.io/zh-cn/docs/themes.html</span></span></span><br><span class="line">详情请参考：请参考：https:<span class="comment">//hexo.io/zh-cn/docs/setup.html</span></span><br></pre></td></tr></table></figure></p>
-<h2 id="部署到GitHub"><a href="#部署到GitHub" class="headerlink" title="部署到GitHub"></a>部署到GitHub</h2><h3 id="站点配置"><a href="#站点配置" class="headerlink" title="站点配置"></a>站点配置</h3><p>修改Hexo站点配置文件/hwdata/dwj999/_config.yml,以下为例<br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Site  </span></span><br><span class="line"><span class="attr">title:</span> <span class="string">Jiessie's'</span> <span class="string">Blog</span> <span class="comment">#标题  </span></span><br><span class="line"><span class="attr">subtitle:</span> <span class="string">没伞的孩子必须努力奔跑</span>  <span class="comment">#副标题</span></span><br><span class="line"><span class="attr">description:</span> <span class="string">最怕一生碌碌无为,还说平凡难能可贵！</span>  </span><br><span class="line"><span class="attr">author:</span> <span class="string">Jiessie</span>  </span><br><span class="line"><span class="attr">language:</span> <span class="string">zh-Hans</span>  </span><br><span class="line"></span><br><span class="line"><span class="attr">url:</span> <span class="attr">http://dwj999.github.io</span>  </span><br><span class="line"></span><br><span class="line"><span class="attr">deploy:</span>  </span><br><span class="line"><span class="attr">  type:</span> <span class="string">git</span>  </span><br><span class="line"><span class="attr">  repo:</span> <span class="string">git@github.com:dwj999/dwj999.github.io.git</span>  </span><br><span class="line"><span class="attr">  branch:</span> <span class="string">master</span>  </span><br><span class="line"><span class="attr">  message:</span> <span class="string">'站点更新:<span class="template-variable">&#123;&#123;now("YYYY-MM-DD HH/mm/ss")&#125;&#125;</span>'</span></span><br></pre></td></tr></table></figure></p>
-<h3 id="github创建项目"><a href="#github创建项目" class="headerlink" title="github创建项目"></a>github创建项目</h3><p>仓库的名字必须和你的帐号对应，比如我的github地址：<a href="https://github.com/dwj999" target="_blank" rel="noopener">https://github.com/dwj999</a> 新建仓库名为dwj999.github.io,因我的项目已创建，此为演示，故有提醒，可忽略<br><img src="http://note.youdao.com/yws/public/resource/07bf646071b1146a82f5002fd9e53bcd/xmlnote/4D97A1CDD66544C88937FF1635C584CB/30910" alt="image"></p>
-<h3 id="git配置"><a href="#git配置" class="headerlink" title="git配置"></a>git配置</h3><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">git<span class="built_in"> config </span>--global user.email <span class="string">"dwj999@163.com"</span> </span><br><span class="line">git<span class="built_in"> config </span>--global user.name <span class="string">"dwj999"</span></span><br><span class="line">ssh-keygen -t rsa -C <span class="string">"dwj999@163.com"</span>   #一路回车，如已生成过，可覆盖成功后会~/.ssh目录生成key，复制id_rsa.pub内容</span><br></pre></td></tr></table></figure>
-<h3 id="添加key"><a href="#添加key" class="headerlink" title="添加key"></a>添加key</h3><p><img src="http://note.youdao.com/yws/public/resource/07bf646071b1146a82f5002fd9e53bcd/xmlnote/A9D5315CE0594ADE8E715BC14F63E122/30886" alt="image"></p>
-<p>打开github地址：<a href="https://github.com/settings/ssh，打开ssh" target="_blank" rel="noopener">https://github.com/settings/ssh，打开ssh</a> keys，添加key<br><img src="http://note.youdao.com/yws/public/resource/07bf646071b1146a82f5002fd9e53bcd/xmlnote/1B4451F32C0642FEBD6868200D58DD70/30896" alt="image"></p>
-<h3 id="代码上传"><a href="#代码上传" class="headerlink" title="代码上传"></a>代码上传</h3><figure class="highlight verilog"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># linux编译</span><br><span class="line">hexo <span class="keyword">generate</span></span><br><span class="line"># 在主机的hexo目录下 执行以下命令将自动更新到Github</span><br><span class="line">hexo d</span><br></pre></td></tr></table></figure>
-<h3 id="站点访问，左面菜单和主题已经配置过"><a href="#站点访问，左面菜单和主题已经配置过" class="headerlink" title="站点访问，左面菜单和主题已经配置过"></a>站点访问，左面菜单和主题已经配置过</h3><p><img src="http://note.youdao.com/yws/public/resource/07bf646071b1146a82f5002fd9e53bcd/xmlnote/82160EF561E54B88B6428812E6822255/30925" alt="image"></p>
-<h2 id="主题和配置文件"><a href="#主题和配置文件" class="headerlink" title="主题和配置文件"></a>主题和配置文件</h2><p>切换到站点目录，下载主题代码<br><figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd <span class="regexp">/hwdata/</span>dwj999</span><br><span class="line">git clone https:<span class="regexp">//gi</span>thub.com<span class="regexp">/iissnan/</span>hexo-theme-<span class="keyword">next</span> themes<span class="regexp">/next    #主题的配置文件，位于 hexo/</span>theme<span class="regexp">/next/</span>_config.yml</span><br></pre></td></tr></table></figure></p>
-<p>配置主题<br><figure class="highlight autoit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vim _config.yml</span><br><span class="line"><span class="meta"># 找到theme:修改后面的参数，默认是landscape</span></span><br><span class="line">theme: <span class="keyword">next</span></span><br><span class="line">hexo d -g <span class="meta">#重新编译，上传</span></span><br></pre></td></tr></table></figure></p>
-<p>主题和第三方服务说明<br>官方文档很详情<br>请参考：<br><a href="http://theme-next.iissnan.com/getting-started.html" target="_blank" rel="noopener">http://theme-next.iissnan.com/getting-started.html</a><br><a href="http://theme-next.iissnan.com/theme-settings.html" target="_blank" rel="noopener">http://theme-next.iissnan.com/theme-settings.html</a><br><a href="http://theme-next.iissnan.com/third-party-services.html" target="_blank" rel="noopener">http://theme-next.iissnan.com/third-party-services.html</a>   </p>
-<h2 id="发布文章"><a href="#发布文章" class="headerlink" title="发布文章"></a>发布文章</h2><p>由于hexo支持markdown写文章，并且我使用的是windows机器，代码发布在linux机器上，所以选择了有道云笔记的markdown笔记来写文章，虽然语法支持有缺陷，但是以前习惯了使用有道云，没有使用其他工具，像Cmd Markdown的在线编辑器也不错。<br><figure class="highlight axapta"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo <span class="keyword">new</span> <span class="string">"hexo next 在github上搭建个人博客"</span> <span class="meta">#创建了一个博客文章</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://note.youdao.com/yws/public/resource/07bf646071b1146a82f5002fd9e53bcd/xmlnote/86071474F1B14AAFAC852DF6D36FC8FB/30979" alt="image"><br>再使用有道云的markdown进行写文章，写好后，导出，上传到github。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-<div>
-  
-</div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
+  <nav class="pagination">
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right"></i></a>
+  </nav>
+
 
 
           </div>
@@ -3849,7 +4004,7 @@
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-count">11</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>

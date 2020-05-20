@@ -68,7 +68,7 @@
 
 
 
-  <meta name="keywords" content="frm,ibd,mysql,percona,innodb," />
+  <meta name="keywords" content="percona,mysql,innodb,frm,ibd," />
 
 
 
@@ -82,7 +82,7 @@
 
 
 <meta name="description" content="前言MySQL从5.5版本开始，InnoDB存储引擎已经成为默认存储引擎。通过参数innodb_file_per_table控制设置是否开启独立表空间，当开启独立表空间时数据和索引会存在于ibd文件中,数据目录中会存在frm和ibd文件;当未开启独立表空间时，此时使用的是共享表空间，数据和索引会存储在ibdata1文件中，数据目录只会存在frm文件。如果不小心删除了数据目录下的frm或者ibd文件">
-<meta name="keywords" content="frm,ibd,mysql,percona,innodb">
+<meta name="keywords" content="percona,mysql,innodb,frm,ibd">
 <meta property="og:type" content="article">
 <meta property="og:title" content="误删除frm、ibd文件恢复案例">
 <meta property="og:url" content="https://dwj999.github.io/误删除frm、ibd文件恢复案例.html">
@@ -350,15 +350,15 @@
       
         <div class="post-tags">
           
-            <a href="/tags/frm/" rel="tag"># frm</a>
-          
-            <a href="/tags/ibd/" rel="tag"># ibd</a>
+            <a href="/tags/percona/" rel="tag"># percona</a>
           
             <a href="/tags/mysql/" rel="tag"># mysql</a>
           
-            <a href="/tags/percona/" rel="tag"># percona</a>
-          
             <a href="/tags/innodb/" rel="tag"># innodb</a>
+          
+            <a href="/tags/frm/" rel="tag"># frm</a>
+          
+            <a href="/tags/ibd/" rel="tag"># ibd</a>
           
         </div>
       
@@ -371,14 +371,18 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
+              <a href="/AWS-EC2搭建MHA-VIP-MySQL5-7.html" rel="next" title="AWS EC2搭建MHA+VIP+MySQL5.7">
+                <i class="fa fa-chevron-left"></i> AWS EC2搭建MHA+VIP+MySQL5.7
+              </a>
+            
           </div>
 
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/Aliyun-ECS搭建MHA-Keepalived-VIP-MySQL5-7.html" rel="prev" title="Aliyun ECS搭建MHA+Keepalived+VIP+MySQL5.7">
-                Aliyun ECS搭建MHA+Keepalived+VIP+MySQL5.7 <i class="fa fa-chevron-right"></i>
+              <a href="/ProxySQL-安装配置详解及读写分离、负载均衡.html" rel="prev" title="ProxySQL 安装配置详解及读写分离、负载均衡">
+                ProxySQL 安装配置详解及读写分离、负载均衡 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -456,7 +460,7 @@
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">5</span>
+                  <span class="site-state-item-count">10</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -467,7 +471,7 @@
               
               <div class="site-state-item site-state-categories">
                 
-                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-count">7</span>
                   <span class="site-state-item-name">分类</span>
                 
               </div>
@@ -478,7 +482,7 @@
               
               <div class="site-state-item site-state-tags">
                 
-                  <span class="site-state-item-count">14</span>
+                  <span class="site-state-item-count">26</span>
                   <span class="site-state-item-name">标签</span>
                 
               </div>

@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+<script src="//cdn.bootcss.com/pace/1.0.2/pace.min.js"></script>
+<link href="//cdn.bootcss.com/pace/1.0.2/themes/pink/pace-theme-flash.css" rel="stylesheet">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="mongo,mongodb,MMAPv1,WiredTiger," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Jiessie's' Blog" type="application/atom+xml" />
+
+
+
+
+
+
+<meta name="description" content="前言MongoDB是一个开源的文档型数据库，介于关系数据库和非关系数据库之间，是非关系数据库中功能最丰富，最像关系数据库的。它支持的数据结构非常松散，是类似json的bson格式，因此可以存储比较复杂的数据类型。Mongo最大的特点是它支持的查询语言非常强大，其语法有点类似于面向对象的查询语言，几乎可以实现类似关系数据库单表查询的绝大部分功能，而且还支持对数据建立索引。 存储引擎存储引擎是Mong">
+<meta name="keywords" content="mongo,mongodb,MMAPv1,WiredTiger">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MongoDB从MMAPv1在线迁移至WiredTiger引擎">
+<meta property="og:url" content="https://dwj999.github.io/MongoDB从MMAPv1在线迁移至WiredTiger引擎.html">
+<meta property="og:site_name" content="Jiessie&#39;s&#39; Blog">
+<meta property="og:description" content="前言MongoDB是一个开源的文档型数据库，介于关系数据库和非关系数据库之间，是非关系数据库中功能最丰富，最像关系数据库的。它支持的数据结构非常松散，是类似json的bson格式，因此可以存储比较复杂的数据类型。Mongo最大的特点是它支持的查询语言非常强大，其语法有点类似于面向对象的查询语言，几乎可以实现类似关系数据库单表查询的绝大部分功能，而且还支持对数据建立索引。 存储引擎存储引擎是Mong">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2020-05-20T03:47:15.493Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MongoDB从MMAPv1在线迁移至WiredTiger引擎">
+<meta name="twitter:description" content="前言MongoDB是一个开源的文档型数据库，介于关系数据库和非关系数据库之间，是非关系数据库中功能最丰富，最像关系数据库的。它支持的数据结构非常松散，是类似json的bson格式，因此可以存储比较复杂的数据类型。Mongo最大的特点是它支持的查询语言非常强大，其语法有点类似于面向对象的查询语言，几乎可以实现类似关系数据库单表查询的绝大部分功能，而且还支持对数据建立索引。 存储引擎存储引擎是Mong">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="https://dwj999.github.io/MongoDB从MMAPv1在线迁移至WiredTiger引擎.html"/>
+
+
+
+
+
+<style>
+    .pace .pace-progress {
+        background: #1E92FB; /*进度条颜色*/
+        height: 3px;
+    }
+    .pace .pace-progress-inner {
+         box-shadow: 0 0 10px #1E92FB, 0 0 5px     #1E92FB; /*阴影颜色*/
+    }
+    .pace .pace-activity {
+        border-top-color: #1E92FB;    /*上边框颜色*/
+        border-left-color: #1E92FB;    /*左边框颜色*/
+    }
+</style>
+
+  <title>MongoDB从MMAPv1在线迁移至WiredTiger引擎 | Jiessie's' Blog</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+<a href="https://github.com/dwj999"><img width="149" height="149" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_darkblue_121621.png?resize=149%2C149" class="attachment-full size-full" alt="Fork me on GitHub" data-recalc-dims="1"></a>
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Jiessie's' Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">没伞的孩子必须努力奔跑</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://dwj999.github.io/MongoDB从MMAPv1在线迁移至WiredTiger引擎.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jiessie">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/jiessie.png">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Jiessie's' Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">MongoDB从MMAPv1在线迁移至WiredTiger引擎</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-07-21T16:33:46+08:00">
+                2017-07-21
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mongodb/" itemprop="url" rel="index">
+                    <span itemprop="name">mongodb</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+            <div class="post-wordcount">
+              
+                
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">字数统计&#58;</span>
+                
+                <span title="字数统计">
+                  
+                </span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">
+                  
+                </span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>MongoDB是一个开源的文档型数据库，介于关系数据库和非关系数据库之间，是非关系数据库中功能最丰富，最像关系数据库的。它支持的数据结构非常松散，是类似json的bson格式，因此可以存储比较复杂的数据类型。Mongo最大的特点是它支持的查询语言非常强大，其语法有点类似于面向对象的查询语言，几乎可以实现类似关系数据库单表查询的绝大部分功能，而且还支持对数据建立索引。</p>
+<h2 id="存储引擎"><a href="#存储引擎" class="headerlink" title="存储引擎"></a>存储引擎</h2><p>存储引擎是MongoDB的核心组件，负责管理数据如何存储在硬盘和内存上。从MongoDB3.0版本开始，MongoDB支持多数据存储引擎，如WiredTiger，MMAPv1，In-Memory等，每个存储引擎都有自己的优势，percona版本还支持RocksDB引擎。从3.2版本开始，WiredTiger成为了默认的存储引擎，在之前版本MMAPv1为默认存储引擎。这两种引擎在目前的使用量占比最大。</p>
+<h3 id="WiredTiger、MMAPv1对比"><a href="#WiredTiger、MMAPv1对比" class="headerlink" title="WiredTiger、MMAPv1对比"></a>WiredTiger、MMAPv1对比</h3><h4 id="性能、性能"><a href="#性能、性能" class="headerlink" title="性能、性能"></a>性能、性能</h4><p>MMAPv1引擎使用的是表级锁，当单个集合上有并发操作时，吞吐会受限制。<br>Wiredtiger引擎使用文档级锁，通过多版本并发控制，带来并发和吞吐的提高。  </p>
+<h4 id="压缩、加密"><a href="#压缩、加密" class="headerlink" title="压缩、加密"></a>压缩、加密</h4><p>MMAPv1引擎要求数据在内存和在磁盘的形式一致(map磁盘内存映射)，因此不支持压缩和加密。<br>Wiredtiger引擎支持对所有集合和索引进行Block压缩和前缀压缩，可以大大节省存储空间。但是消耗额外的CPU执行数据压缩和解压缩的操作。  </p>
+<h4 id="存储方式"><a href="#存储方式" class="headerlink" title="存储方式"></a>存储方式</h4><p>MMAPv1引擎在数据库级别配置文件，数据库中的所有集合和索引都混合存储在数据库文件中，即使删掉了某个集合或者索引，占用的磁盘空间也很难回收。<br>WiredTiger引擎在集合和索引级别分配文件，数据库中的所有集合和索引都存储在单独的文件中，集合或者索引删除后，磁盘空间方便回收。  </p>
+<h4 id="内存使用"><a href="#内存使用" class="headerlink" title="内存使用"></a>内存使用</h4><p>MMAPv1引擎消耗内存大，无有效控制手段。<br>WiredTiger引擎支持内存使用空间配置，可通过storage.wiredTiger.engineConfig.cacheSizeGB参控制MongoDB所能使用的最大内存。</p>
+<h2 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h2><p>操作系统：centos 6.5 x86_64</p>
+<h2 id="迁移"><a href="#迁移" class="headerlink" title="迁移"></a>迁移</h2><p>变更存储引擎的常见方式有2种，分别是停机和不停机。本文只介绍在不停机的情况下从MMAPv1引擎副本集迁移至WiredTiger引擎副本集。</p>
+<h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>注意：  </p>
+<p><font color="#dd0000">迁移的成功取决于oplog的大小是否能够满足从库完全初始化数据。  </font><br><br>首先安装好mongodb，并依次启动，实例以3.4.4版本为例，端口分别是27017/28017/29017，部署在一台服务器，具体安装步骤省略。<br><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]# /usr/local/mongodb1/bin/mongod -f /hwdata/data/mongodb1/conf/mongodb.conf </span><br><span class="line">note: noprealloc may hurt performance <span class="keyword">in</span> many applications</span><br><span class="line">about <span class="keyword">to</span> fork child process, waiting until<span class="built_in"> server </span>is ready <span class="keyword">for</span> connections.</span><br><span class="line">forked process: 14873</span><br><span class="line">child process started successfully, parent exiting</span><br><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]# /usr/local/mongodb2/bin/mongod -f /hwdata/data/mongodb2/conf/mongodb.conf   </span><br><span class="line">note: noprealloc may hurt performance <span class="keyword">in</span> many applications</span><br><span class="line">about <span class="keyword">to</span> fork child process, waiting until<span class="built_in"> server </span>is ready <span class="keyword">for</span> connections.</span><br><span class="line">forked process: 14894</span><br><span class="line">child process started successfully, parent exiting</span><br><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]# /usr/local/mongodb3/bin/mongod -f /hwdata/data/mongodb3/conf/mongodb.conf   </span><br><span class="line">note: noprealloc may hurt performance <span class="keyword">in</span> many applications</span><br><span class="line">about <span class="keyword">to</span> fork child process, waiting until<span class="built_in"> server </span>is ready <span class="keyword">for</span> connections.</span><br><span class="line">forked process: 14919</span><br><span class="line">child process started successfully, parent exiting</span><br><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]# netstat -tunlp|grep mongo</span><br><span class="line">tcp        0      0 0.0.0.0:27017               0.0.0.0:*                   LISTEN      14873/mongod        </span><br><span class="line">tcp        0      0 0.0.0.0:28017               0.0.0.0:*                   LISTEN      14894/mongod        </span><br><span class="line">tcp        0      0 0.0.0.0:29017               0.0.0.0:*                   LISTEN      14919/mongod</span><br></pre></td></tr></table></figure></p>
+<h3 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h3><p>详情的配置文件如下：<br><figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[root@iZuf6c08fdv8duubho2b0rZ ~]</span><span class="comment"># cat /hwdata/data/mongodb1/conf/mongodb.conf </span></span><br><span class="line"><span class="attr">dbpath</span>=/hwdata/data/mongodb1/data</span><br><span class="line"><span class="attr">logpath</span>=/hwdata/data/mongodb1/logs/mongodb.log</span><br><span class="line"><span class="attr">pidfilepath</span>=/hwdata/data/mongodb1/logs/mongodb.pid</span><br><span class="line"><span class="attr">directoryperdb</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">logappend</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">port</span>=<span class="number">27017</span></span><br><span class="line"><span class="attr">fork</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">noprealloc</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">maxConns</span>=<span class="number">10000</span></span><br><span class="line"><span class="attr">profile</span>=<span class="number">1</span></span><br><span class="line"><span class="attr">slowms</span>=<span class="number">100</span></span><br><span class="line"><span class="attr">journal</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">replSet</span>=jiessie</span><br><span class="line"><span class="attr">storageEngine</span>=mmapv1</span><br><span class="line"><span class="section">[root@iZuf6c08fdv8duubho2b0rZ ~]</span><span class="comment"># cat /hwdata/data/mongodb2/conf/mongodb.conf  </span></span><br><span class="line"><span class="attr">dbpath</span>=/hwdata/data/mongodb2/data</span><br><span class="line"><span class="attr">logpath</span>=/hwdata/data/mongodb2/logs/mongodb.log</span><br><span class="line"><span class="attr">pidfilepath</span>=/hwdata/data/mongodb2/logs/mongodb.pid</span><br><span class="line"><span class="attr">directoryperdb</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">logappend</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">port</span>=<span class="number">28017</span></span><br><span class="line"><span class="attr">fork</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">noprealloc</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">maxConns</span>=<span class="number">10000</span></span><br><span class="line"><span class="attr">profile</span>=<span class="number">1</span></span><br><span class="line"><span class="attr">slowms</span>=<span class="number">100</span></span><br><span class="line"><span class="attr">journal</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">replSet</span>=jiessie</span><br><span class="line"><span class="attr">storageEngine</span>=mmapv1</span><br><span class="line"><span class="section">[root@iZuf6c08fdv8duubho2b0rZ ~]</span><span class="comment"># cat /hwdata/data/mongodb3/conf/mongodb.conf  </span></span><br><span class="line"><span class="attr">dbpath</span>=/hwdata/data/mongodb3/data</span><br><span class="line"><span class="attr">logpath</span>=/hwdata/data/mongodb3/logs/mongodb.log</span><br><span class="line"><span class="attr">pidfilepath</span>=/hwdata/data/mongodb3/logs/mongodb.pid</span><br><span class="line"><span class="attr">directoryperdb</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">logappend</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">port</span>=<span class="number">29017</span></span><br><span class="line"><span class="attr">fork</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">noprealloc</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">maxConns</span>=<span class="number">10000</span></span><br><span class="line"><span class="attr">profile</span>=<span class="number">1</span></span><br><span class="line"><span class="attr">slowms</span>=<span class="number">100</span></span><br><span class="line"><span class="attr">journal</span>=<span class="literal">true</span></span><br><span class="line"><span class="attr">replSet</span>=jiessie</span><br><span class="line"><span class="attr">storageEngine</span>=mmapv1</span><br></pre></td></tr></table></figure></p>
+<h3 id="搭建副本集"><a href="#搭建副本集" class="headerlink" title="搭建副本集"></a>搭建副本集</h3><p>登录其中一个实例，这里以27017为例子，搭建副本<br><figure class="highlight objectivec"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="meta"># /usr/local/mongodb1/bin/mongo</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting to: mongodb:<span class="comment">//127.0.0.1:27017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">&gt; cfg = &#123;_<span class="keyword">id</span>: <span class="string">"jiessie"</span>, members: [&#123;_<span class="keyword">id</span>: <span class="number">0</span>, host: <span class="string">"192.168.7.50:27017"</span>,priority:<span class="number">3</span>&#125;,&#123;_<span class="keyword">id</span>: <span class="number">1</span>, host: <span class="string">"192.168.7.50:28017"</span>,priority:<span class="number">2</span>&#125;,&#123;_<span class="keyword">id</span>: <span class="number">2</span>, host: <span class="string">"192.168.7.50:29017"</span>,priority:<span class="number">3</span>&#125;]&#125;;</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">0</span>,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : <span class="number">3</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : <span class="number">2</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : <span class="number">3</span></span><br><span class="line">                &#125;</span><br><span class="line">        ]</span><br><span class="line">&#125;</span><br><span class="line">&gt; rs.initiate(cfg);</span><br><span class="line">&#123; <span class="string">"ok"</span> : <span class="number">1</span> &#125;</span><br><span class="line">jiessie:SECONDARY&gt; </span><br><span class="line">jiessie:PRIMARY&gt; rs.status();</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"set"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"date"</span> : ISODate(<span class="string">"2017-07-21T09:47:24.215Z"</span>),</span><br><span class="line">        <span class="string">"myState"</span> : <span class="number">1</span>,</span><br><span class="line">        <span class="string">"term"</span> : NumberLong(<span class="number">1</span>),</span><br><span class="line">        <span class="string">"heartbeatIntervalMillis"</span> : NumberLong(<span class="number">2000</span>),</span><br><span class="line">        <span class="string">"optimes"</span> : &#123;</span><br><span class="line">                <span class="string">"lastCommittedOpTime"</span> : &#123;</span><br><span class="line">                        <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"appliedOpTime"</span> : &#123;</span><br><span class="line">                        <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"durableOpTime"</span> : &#123;</span><br><span class="line">                        <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">0</span>,</span><br><span class="line">                        <span class="string">"name"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"health"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"state"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"stateStr"</span> : <span class="string">"PRIMARY"</span>,</span><br><span class="line">                        <span class="string">"uptime"</span> : <span class="number">1056</span>,</span><br><span class="line">                        <span class="string">"optime"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDate"</span> : ISODate(<span class="string">"2017-07-21T09:47:16Z"</span>),</span><br><span class="line">                        <span class="string">"infoMessage"</span> : <span class="string">"could not find member to sync from"</span>,</span><br><span class="line">                        <span class="string">"electionTime"</span> : Timestamp(<span class="number">1500630354</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"electionDate"</span> : ISODate(<span class="string">"2017-07-21T09:45:54Z"</span>),</span><br><span class="line">                        <span class="string">"configVersion"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"self"</span> : <span class="literal">true</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"name"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"health"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"state"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"stateStr"</span> : <span class="string">"SECONDARY"</span>,</span><br><span class="line">                        <span class="string">"uptime"</span> : <span class="number">99</span>,</span><br><span class="line">                        <span class="string">"optime"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDurable"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDate"</span> : ISODate(<span class="string">"2017-07-21T09:47:16Z"</span>),</span><br><span class="line">                        <span class="string">"optimeDurableDate"</span> : ISODate(<span class="string">"2017-07-21T09:47:16Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeat"</span> : ISODate(<span class="string">"2017-07-21T09:47:22.597Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeatRecv"</span> : ISODate(<span class="string">"2017-07-21T09:47:23.554Z"</span>),</span><br><span class="line">                        <span class="string">"pingMs"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"syncingTo"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"configVersion"</span> : <span class="number">1</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"name"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"health"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"state"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"stateStr"</span> : <span class="string">"SECONDARY"</span>,</span><br><span class="line">                        <span class="string">"uptime"</span> : <span class="number">99</span>,</span><br><span class="line">                        <span class="string">"optime"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDurable"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500630436</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">1</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDate"</span> : ISODate(<span class="string">"2017-07-21T09:47:16Z"</span>),</span><br><span class="line">                        <span class="string">"optimeDurableDate"</span> : ISODate(<span class="string">"2017-07-21T09:47:16Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeat"</span> : ISODate(<span class="string">"2017-07-21T09:47:22.597Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeatRecv"</span> : ISODate(<span class="string">"2017-07-21T09:47:23.527Z"</span>),</span><br><span class="line">                        <span class="string">"pingMs"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"syncingTo"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"configVersion"</span> : <span class="number">1</span></span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"ok"</span> : <span class="number">1</span></span><br><span class="line">&#125;</span><br><span class="line">jiessie:PRIMARY&gt;</span><br></pre></td></tr></table></figure></p>
+<h4 id="查看存储引擎"><a href="#查看存储引擎" class="headerlink" title="查看存储引擎"></a>查看存储引擎</h4><p>登录其中一个实例，这里以27017为例子，当出现mmapv1时，代表当前使用存储引擎为mmapv1<br><figure class="highlight autoit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo --eval <span class="string">"db.serverStatus()"</span>|grep name</span></span><br><span class="line">                <span class="string">"name"</span> : <span class="string">"mmapv1"</span>,</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta">#</span></span><br></pre></td></tr></table></figure></p>
+<h4 id="测试副本集"><a href="#测试副本集" class="headerlink" title="测试副本集"></a>测试副本集</h4><p>登录27017的主库，插入数据，在其他节点上查看<br><figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo </span></span><br><span class="line">MongoDB shell version v3.<span class="number">4.4</span></span><br><span class="line">connecting to: mongodb:<span class="regexp">//</span><span class="number">127.0</span>.<span class="number">0.1</span>:<span class="number">27017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span>.<span class="number">4</span></span><br><span class="line">jiessie:PRIMARY&gt; show dbs;</span><br><span class="line">admin   <span class="number">0.078</span>GB</span><br><span class="line">local  <span class="number">12.072</span>GB</span><br><span class="line">jiessie:PRIMARY&gt; use test11;</span><br><span class="line">switched to db test11</span><br><span class="line">jiessie:PRIMARY&gt; db.tmp11.insert(&#123;<span class="string">"id"</span>:<span class="string">"11"</span>&#125;);</span><br><span class="line">WriteResult(&#123; <span class="string">"nInserted"</span> : <span class="number">1</span> &#125;)</span><br><span class="line">jiessie:PRIMARY&gt; db.tmp11.find();</span><br><span class="line">&#123; <span class="string">"_id"</span> : ObjectId(<span class="string">"5971ced335d36a3364107ac7"</span>), <span class="string">"id"</span> : <span class="string">"11"</span> &#125;</span><br><span class="line">jiessie:PRIMARY&gt; <span class="keyword">exit</span></span><br><span class="line">bye</span><br><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo localhost:28017</span></span><br><span class="line">MongoDB shell version v3.<span class="number">4.4</span></span><br><span class="line">connecting to: localhost:<span class="number">28017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span>.<span class="number">4</span></span><br><span class="line">jiessie:SECONDARY&gt; rs.slaveOk();</span><br><span class="line">jiessie:SECONDARY&gt; use test11;</span><br><span class="line">switched to db test11</span><br><span class="line">jiessie:SECONDARY&gt; db.tmp11.find();</span><br><span class="line">&#123; <span class="string">"_id"</span> : ObjectId(<span class="string">"5971ced335d36a3364107ac7"</span>), <span class="string">"id"</span> : <span class="string">"11"</span> &#125;</span><br><span class="line">jiessie:SECONDARY&gt; <span class="keyword">exit</span></span><br><span class="line">bye</span><br><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo localhost:29017</span></span><br><span class="line">MongoDB shell version v3.<span class="number">4.4</span></span><br><span class="line">connecting to: localhost:<span class="number">29017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span>.<span class="number">4</span></span><br><span class="line">jiessie:SECONDARY&gt; use test11;</span><br><span class="line">switched to db test11</span><br><span class="line">jiessie:SECONDARY&gt; rs.slaveOk();</span><br><span class="line">jiessie:SECONDARY&gt; db.tmp11.find();</span><br><span class="line">&#123; <span class="string">"_id"</span> : ObjectId(<span class="string">"5971ced335d36a3364107ac7"</span>), <span class="string">"id"</span> : <span class="string">"11"</span> &#125;</span><br><span class="line">jiessie:SECONDARY&gt; <span class="keyword">exit</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="迁移步骤"><a href="#迁移步骤" class="headerlink" title="迁移步骤"></a>迁移步骤</h3><figure class="highlight lsl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">将<span class="number">29017</span>的从节点设置为隐藏节点，不再成为主，对应用不可见</span><br><span class="line">把<span class="number">29017</span>的节点存储引擎从MMAPv1设置为WiredTiger，删除原MMAPv1数据，重新加入副本集中</span><br><span class="line">当<span class="number">29017</span>的WiredTiger节点从主节点初始化数据成功后，依次将其他从节点的引擎修改为的WiredTiger</span><br><span class="line">当所有从节点的引擎修改为WiredTiger后，在主节点执行rs.stepdown()将主降级，触发在其他从节点选举新主</span><br><span class="line">再将原主库按照以上的方式将引擎从MMAPv1设置为WiredTiger</span><br></pre></td></tr></table></figure>
+<p>详情请参考：<a href="http://docs.mongoing.com/manual-zh/tutorial/configure-a-hidden-replica-set-member.html" target="_blank" rel="noopener">http://docs.mongoing.com/manual-zh/tutorial/configure-a-hidden-replica-set-member.html</a></p>
+<h3 id="开始迁移"><a href="#开始迁移" class="headerlink" title="开始迁移"></a>开始迁移</h3><p>副本集的架构下，所有节点之间都是同步的，即使存储引擎不同也不受影响。<br>实验中的副本集端口分别为27017/28017/29017，其中主节点为27017，28017和29017为从节点。<br>27017权重为3，28017权重为2，29017权重为1。</p>
+<p><font color="#dd0000">步骤最后一项，将原主库引擎从MMAPv1设置为WiredTiger，可在原主库上执行rs.stepDown()触发选举，也可提高其他从节点的权重，需要高于主节点。</font><br></p>
+<h4 id="29017实例"><a href="#29017实例" class="headerlink" title="29017实例"></a>29017实例</h4><h5 id="设置节点隐藏"><a href="#设置节点隐藏" class="headerlink" title="设置节点隐藏"></a>设置节点隐藏</h5><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo</span></span><br><span class="line">MongoDB shell <span class="keyword">version</span> v3.4.4</span><br><span class="line">connecting to: mongodb:<span class="string">//127.0.0.1</span><span class="function">:27017</span></span><br><span class="line">MongoDB server <span class="keyword">version</span>: 3.4.4</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg = rs.config<span class="params">()</span>;</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"version"</span> : 1,</span><br><span class="line">        <span class="string">"protocolVersion"</span> : NumberLong<span class="params">(1)</span>,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 0,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 3,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 1,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 2,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 2,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 3,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"settings"</span> : &#123;</span><br><span class="line">                <span class="string">"chainingAllowed"</span> : <span class="literal">true</span>,</span><br><span class="line">                <span class="string">"heartbeatIntervalMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"heartbeatTimeoutSecs"</span> : 10,</span><br><span class="line">                <span class="string">"electionTimeoutMillis"</span> : 10000,</span><br><span class="line">                <span class="string">"catchUpTimeoutMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"getLastErrorModes"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"getLastErrorDefaults"</span> : &#123;</span><br><span class="line">                        <span class="string">"w"</span> : 1,</span><br><span class="line">                        <span class="string">"wtimeout"</span> : 0</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"replicaSetId"</span> : ObjectId<span class="params">("5971cd4835e57f0331e944c8")</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[2]<span class="string">.host</span>;</span><br><span class="line">192.168.7.50<span class="function">:29017</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[2]<span class="string">.priority</span> = 0;       <span class="comment">#优化级降为0，不再参数选主</span></span><br><span class="line">0</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[2]<span class="string">.hidden</span> = <span class="literal">true</span>;      <span class="comment">#对应用隐藏</span></span><br><span class="line"><span class="literal">true</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; rs.reconfig<span class="params">(cfg)</span>;</span><br><span class="line">&#123; <span class="string">"ok"</span> : 1 &#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="修改引擎，删除原数据"><a href="#修改引擎，删除原数据" class="headerlink" title="修改引擎，删除原数据"></a>修改引擎，删除原数据</h5><figure class="highlight autoit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo localhost:29017</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">29017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:SECONDARY&gt; rs.slaveOk()<span class="comment">;</span></span><br><span class="line">jiessie:SECONDARY&gt; use admin<span class="comment">;</span></span><br><span class="line">switched <span class="keyword">to</span> db admin</span><br><span class="line">jiessie:SECONDARY&gt; db.shutdownServer()<span class="comment">;                                                      #关闭服务</span></span><br><span class="line">server should be down...</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># rm -rf /hwdata/data/mongodb3/data/*                        #删除原引擎数据</span></span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># cat /hwdata/data/mongodb3/conf/mongodb.conf |grep sto      #查看原配置</span></span><br><span class="line">storageEngine=mmapv1</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># sed -i <span class="string">'s@storageEngine=mmapv1@storageEngine=wiredTiger@g'</span> /hwdata/data/mongodb3/conf/mongodb.conf    #修改配置文件的引擎部分</span></span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># cat /hwdata/data/mongodb3/conf/mongodb.conf |grep sto      #查看新配置</span></span><br><span class="line">storageEngine=wiredTiger</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb3/bin/mongod -f /hwdata/data/mongodb3/conf/mongodb.conf     #启动服务</span></span><br><span class="line">note: noprealloc may hurt performance <span class="keyword">in</span> many applications</span><br><span class="line">about <span class="keyword">to</span> fork child process, waiting <span class="keyword">until</span> server is ready <span class="keyword">for</span> connections.</span><br><span class="line">forked process: <span class="number">613</span></span><br><span class="line">child process started successfully, parent exiting</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb3/bin/mongo localhost:29017 --eval <span class="string">"db.serverStatus()"</span>|grep <span class="string">'"name"'</span>    #验证是否修改成功</span></span><br><span class="line">                <span class="string">"name"</span> : <span class="string">"wiredTiger"</span>,</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb3/bin/mongo localhost:29017</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">29017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:SECONDARY&gt; <span class="keyword">exit</span>                     <span class="meta">#验证初始化同步是否成功，SECONDARY状态表示已经是从节点</span></span><br></pre></td></tr></table></figure>
+<h5 id="加入副本集"><a href="#加入副本集" class="headerlink" title="加入副本集"></a>加入副本集</h5><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo</span></span><br><span class="line">MongoDB shell <span class="keyword">version</span> v3.4.4</span><br><span class="line">connecting to: mongodb:<span class="string">//127.0.0.1</span><span class="function">:27017</span></span><br><span class="line">MongoDB server <span class="keyword">version</span>: 3.4.4</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg = rs.config<span class="params">()</span>;</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"version"</span> : 2,</span><br><span class="line">        <span class="string">"protocolVersion"</span> : NumberLong<span class="params">(1)</span>,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 0,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 3,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 1,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 2,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 2,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 0,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"settings"</span> : &#123;</span><br><span class="line">                <span class="string">"chainingAllowed"</span> : <span class="literal">true</span>,</span><br><span class="line">                <span class="string">"heartbeatIntervalMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"heartbeatTimeoutSecs"</span> : 10,</span><br><span class="line">                <span class="string">"electionTimeoutMillis"</span> : 10000,</span><br><span class="line">                <span class="string">"catchUpTimeoutMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"getLastErrorModes"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"getLastErrorDefaults"</span> : &#123;</span><br><span class="line">                        <span class="string">"w"</span> : 1,</span><br><span class="line">                        <span class="string">"wtimeout"</span> : 0</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"replicaSetId"</span> : ObjectId<span class="params">("5971cd4835e57f0331e944c8")</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[2]<span class="string">.hidden=false</span>;       <span class="comment">#加入副本集，对应用可见，其中[2]表示29017端口</span></span><br><span class="line"><span class="literal">false</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[2]<span class="string">.priority</span> = 1;       <span class="comment">#修改为之前的优先级</span></span><br><span class="line">1</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; rs.reconfig<span class="params">(cfg)</span>;</span><br><span class="line">&#123; <span class="string">"ok"</span> : 1 &#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt;</span><br></pre></td></tr></table></figure>
+<h4 id="28017实例"><a href="#28017实例" class="headerlink" title="28017实例"></a>28017实例</h4><h5 id="设置节点隐藏-1"><a href="#设置节点隐藏-1" class="headerlink" title="设置节点隐藏"></a>设置节点隐藏</h5><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo</span></span><br><span class="line">MongoDB shell <span class="keyword">version</span> v3.4.4</span><br><span class="line">connecting to: mongodb:<span class="string">//127.0.0.1</span><span class="function">:27017</span></span><br><span class="line">MongoDB server <span class="keyword">version</span>: 3.4.4</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg = rs.config<span class="params">()</span>;</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"version"</span> : 4,</span><br><span class="line">        <span class="string">"protocolVersion"</span> : NumberLong<span class="params">(1)</span>,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 0,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 3,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 1,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 2,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 2,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 1,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"settings"</span> : &#123;</span><br><span class="line">                <span class="string">"chainingAllowed"</span> : <span class="literal">true</span>,</span><br><span class="line">                <span class="string">"heartbeatIntervalMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"heartbeatTimeoutSecs"</span> : 10,</span><br><span class="line">                <span class="string">"electionTimeoutMillis"</span> : 10000,</span><br><span class="line">                <span class="string">"catchUpTimeoutMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"getLastErrorModes"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"getLastErrorDefaults"</span> : &#123;</span><br><span class="line">                        <span class="string">"w"</span> : 1,</span><br><span class="line">                        <span class="string">"wtimeout"</span> : 0</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"replicaSetId"</span> : ObjectId<span class="params">("5971cd4835e57f0331e944c8")</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[1]<span class="string">.host</span></span><br><span class="line">192.168.7.50<span class="function">:28017</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[1]<span class="string">.priority</span> = 0;</span><br><span class="line">0</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[1]<span class="string">.hidden</span> = <span class="literal">true</span>;</span><br><span class="line"><span class="literal">true</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; rs.reconfig<span class="params">(cfg)</span>;</span><br><span class="line">&#123; <span class="string">"ok"</span> : 1 &#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="修改引擎，删除原数据-1"><a href="#修改引擎，删除原数据-1" class="headerlink" title="修改引擎，删除原数据"></a>修改引擎，删除原数据</h5><figure class="highlight autoit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo localhost:28017</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">28017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:SECONDARY&gt; rs.slaveOk()<span class="comment">;</span></span><br><span class="line">jiessie:SECONDARY&gt; use admin<span class="comment">;</span></span><br><span class="line">switched <span class="keyword">to</span> db admin</span><br><span class="line">jiessie:SECONDARY&gt; db.shutdownServer()<span class="comment">;                                                      #关闭服务</span></span><br><span class="line">server should be down...</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># rm -rf /hwdata/data/mongodb2/data/*                        #删除原引擎数据</span></span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># cat /hwdata/data/mongodb2/conf/mongodb.conf |grep sto      #查看原配置</span></span><br><span class="line">storageEngine=mmapv1</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># sed -i <span class="string">'s@storageEngine=mmapv1@storageEngine=wiredTiger@g'</span> /hwdata/data/mongodb2/conf/mongodb.conf    #修改配置文件的引擎部分</span></span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># cat /hwdata/data/mongodb2/conf/mongodb.conf |grep sto      #查看新配置</span></span><br><span class="line">storageEngine=wiredTiger</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb2/bin/mongod -f /hwdata/data/mongodb2/conf/mongodb.conf     #启动服务</span></span><br><span class="line">note: noprealloc may hurt performance <span class="keyword">in</span> many applications</span><br><span class="line">about <span class="keyword">to</span> fork child process, waiting <span class="keyword">until</span> server is ready <span class="keyword">for</span> connections.</span><br><span class="line">forked process: <span class="number">1275</span></span><br><span class="line">child process started successfully, parent exiting</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb2/bin/mongo localhost:28017 --eval <span class="string">"db.serverStatus()"</span>|grep <span class="string">'"name"'</span>    #验证是否修改成功</span></span><br><span class="line">                <span class="string">"name"</span> : <span class="string">"wiredTiger"</span>,</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb2/bin/mongo localhost:28017</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">28017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:SECONDARY&gt; <span class="keyword">exit</span>                     <span class="meta">#验证初始化同步是否成功，SECONDARY状态表示已经是从节点</span></span><br></pre></td></tr></table></figure>
+<h5 id="加入副本集-1"><a href="#加入副本集-1" class="headerlink" title="加入副本集"></a>加入副本集</h5><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo </span></span><br><span class="line">MongoDB shell <span class="keyword">version</span> v3.4.4</span><br><span class="line">connecting to: mongodb:<span class="string">//127.0.0.1</span><span class="function">:27017</span></span><br><span class="line">MongoDB server <span class="keyword">version</span>: 3.4.4</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg = rs.config<span class="params">()</span>;</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"version"</span> : 5,</span><br><span class="line">        <span class="string">"protocolVersion"</span> : NumberLong<span class="params">(1)</span>,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 0,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 3,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 1,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 0,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 2,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 1,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"settings"</span> : &#123;</span><br><span class="line">                <span class="string">"chainingAllowed"</span> : <span class="literal">true</span>,</span><br><span class="line">                <span class="string">"heartbeatIntervalMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"heartbeatTimeoutSecs"</span> : 10,</span><br><span class="line">                <span class="string">"electionTimeoutMillis"</span> : 10000,</span><br><span class="line">                <span class="string">"catchUpTimeoutMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"getLastErrorModes"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"getLastErrorDefaults"</span> : &#123;</span><br><span class="line">                        <span class="string">"w"</span> : 1,</span><br><span class="line">                        <span class="string">"wtimeout"</span> : 0</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"replicaSetId"</span> : ObjectId<span class="params">("5971cd4835e57f0331e944c8")</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[1]<span class="string">.hidden</span> = <span class="literal">false</span>;     <span class="comment">#加入副本集，对应用可见，其中[1]表示28017端口</span></span><br><span class="line"><span class="literal">false</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[1]<span class="string">.priority</span> = 2;       <span class="comment">#修改为之前的优先级</span></span><br><span class="line">2</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; rs.reconfig<span class="params">(cfg)</span>;</span><br><span class="line">&#123; <span class="string">"ok"</span> : 1 &#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt;</span><br></pre></td></tr></table></figure>
+<h4 id="27017实例"><a href="#27017实例" class="headerlink" title="27017实例"></a>27017实例</h4><h5 id="设置节点隐藏-2"><a href="#设置节点隐藏-2" class="headerlink" title="设置节点隐藏"></a>设置节点隐藏</h5><figure class="highlight autoit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br></pre></td><td class="code"><pre><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: mongodb://<span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">27017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:PRIMARY&gt; </span><br><span class="line">jiessie:PRIMARY&gt; rs.stepDown()<span class="comment">;</span></span><br><span class="line"><span class="number">2017</span><span class="number">-07</span><span class="number">-22</span>T21:<span class="number">51</span>:<span class="number">26.392</span>+<span class="number">0800</span> E QUERY    [thread1] Error: error doing query: failed: network error <span class="keyword">while</span> attempting <span class="keyword">to</span> <span class="built_in">run</span> command <span class="string">'replSetStepDown'</span> on host <span class="string">'127.0.0.1:27017'</span>  :</span><br><span class="line">DB.prototype.runCommand<span class="symbol">@src</span>/mongo/shell/db.js:<span class="number">132</span>:<span class="number">1</span></span><br><span class="line">DB.prototype.adminCommand<span class="symbol">@src</span>/mongo/shell/db.js:<span class="number">150</span>:<span class="number">16</span></span><br><span class="line">rs.stepDown<span class="symbol">@src</span>/mongo/shell/utils.js:<span class="number">1261</span>:<span class="number">12</span></span><br><span class="line">@(shell):<span class="number">1</span>:<span class="number">1</span></span><br><span class="line"><span class="number">2017</span><span class="number">-07</span><span class="number">-22</span>T21:<span class="number">51</span>:<span class="number">26.394</span>+<span class="number">0800</span> I NETWORK  [thread1] trying reconnect <span class="keyword">to</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">27017</span> (<span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>) failed</span><br><span class="line"><span class="number">2017</span><span class="number">-07</span><span class="number">-22</span>T21:<span class="number">51</span>:<span class="number">26.394</span>+<span class="number">0800</span> I NETWORK  [thread1] reconnect <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">27017</span> (<span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>) ok</span><br><span class="line">jiessie:SECONDARY&gt; rs.slaveOk()<span class="comment">;</span></span><br><span class="line">jiessie:SECONDARY&gt; rs.status()<span class="comment">;                     #等待几秒，查看状态，此时28017实例是已经提升为新主库</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"set"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"date"</span> : ISODate(<span class="string">"2017-07-22T13:51:34.336Z"</span>),</span><br><span class="line">        <span class="string">"myState"</span> : <span class="number">2</span>,</span><br><span class="line">        <span class="string">"term"</span> : NumberLong(<span class="number">12</span>),</span><br><span class="line">        <span class="string">"heartbeatIntervalMillis"</span> : NumberLong(<span class="number">2000</span>),</span><br><span class="line">        <span class="string">"optimes"</span> : &#123;</span><br><span class="line">                <span class="string">"lastCommittedOpTime"</span> : &#123;</span><br><span class="line">                        <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"appliedOpTime"</span> : &#123;</span><br><span class="line">                        <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"durableOpTime"</span> : &#123;</span><br><span class="line">                        <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                        <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">0</span>,</span><br><span class="line">                        <span class="string">"name"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"health"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"state"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"stateStr"</span> : <span class="string">"SECONDARY"</span>,</span><br><span class="line">                        <span class="string">"uptime"</span> : <span class="number">102106</span>,</span><br><span class="line">                        <span class="string">"optime"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDate"</span> : ISODate(<span class="string">"2017-07-22T13:51:20Z"</span>),</span><br><span class="line">                        <span class="string">"infoMessage"</span> : <span class="string">"could not find member to sync from"</span>,</span><br><span class="line">                        <span class="string">"configVersion"</span> : <span class="number">6</span>,</span><br><span class="line">                        <span class="string">"self"</span> : <span class="literal">true</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"name"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"health"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"state"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"stateStr"</span> : <span class="string">"SECONDARY"</span>,</span><br><span class="line">                        <span class="string">"uptime"</span> : <span class="number">2403</span>,</span><br><span class="line">                        <span class="string">"optime"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDurable"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDate"</span> : ISODate(<span class="string">"2017-07-22T13:51:20Z"</span>),</span><br><span class="line">                        <span class="string">"optimeDurableDate"</span> : ISODate(<span class="string">"2017-07-22T13:51:20Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeat"</span> : ISODate(<span class="string">"2017-07-22T13:51:31.557Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeatRecv"</span> : ISODate(<span class="string">"2017-07-22T13:51:33.176Z"</span>),</span><br><span class="line">                        <span class="string">"pingMs"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"syncingTo"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"configVersion"</span> : <span class="number">6</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"name"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"health"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"state"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"stateStr"</span> : <span class="string">"SECONDARY"</span>,</span><br><span class="line">                        <span class="string">"uptime"</span> : <span class="number">4846</span>,</span><br><span class="line">                        <span class="string">"optime"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDurable"</span> : &#123;</span><br><span class="line">                                <span class="string">"ts"</span> : Timestamp(<span class="number">1500731480</span>, <span class="number">1</span>),</span><br><span class="line">                                <span class="string">"t"</span> : NumberLong(<span class="number">12</span>)</span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"optimeDate"</span> : ISODate(<span class="string">"2017-07-22T13:51:20Z"</span>),</span><br><span class="line">                        <span class="string">"optimeDurableDate"</span> : ISODate(<span class="string">"2017-07-22T13:51:20Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeat"</span> : ISODate(<span class="string">"2017-07-22T13:51:31.557Z"</span>),</span><br><span class="line">                        <span class="string">"lastHeartbeatRecv"</span> : ISODate(<span class="string">"2017-07-22T13:51:30.019Z"</span>),</span><br><span class="line">                        <span class="string">"pingMs"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"configVersion"</span> : <span class="number">6</span></span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"ok"</span> : <span class="number">1</span></span><br><span class="line">&#125;</span><br><span class="line">jiessie:SECONDARY&gt; <span class="keyword">exit</span></span><br><span class="line">bye</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo localhost:28017     #登录新主库，原27017实例修改实例引擎</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">28017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:PRIMARY&gt; cfg = rs.config()<span class="comment">;</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"version"</span> : <span class="number">6</span>,</span><br><span class="line">        <span class="string">"protocolVersion"</span> : NumberLong(<span class="number">1</span>),</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">0</span>,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : <span class="number">3</span>,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"votes"</span> : <span class="number">1</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"votes"</span> : <span class="number">1</span></span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : <span class="number">2</span>,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong(<span class="number">0</span>),</span><br><span class="line">                        <span class="string">"votes"</span> : <span class="number">1</span></span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"settings"</span> : &#123;</span><br><span class="line">                <span class="string">"chainingAllowed"</span> : <span class="literal">true</span>,</span><br><span class="line">                <span class="string">"heartbeatIntervalMillis"</span> : <span class="number">2000</span>,</span><br><span class="line">                <span class="string">"heartbeatTimeoutSecs"</span> : <span class="number">10</span>,</span><br><span class="line">                <span class="string">"electionTimeoutMillis"</span> : <span class="number">10000</span>,</span><br><span class="line">                <span class="string">"catchUpTimeoutMillis"</span> : <span class="number">2000</span>,</span><br><span class="line">                <span class="string">"getLastErrorModes"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"getLastErrorDefaults"</span> : &#123;</span><br><span class="line">                        <span class="string">"w"</span> : <span class="number">1</span>,</span><br><span class="line">                        <span class="string">"wtimeout"</span> : <span class="number">0</span></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"replicaSetId"</span> : ObjectId(<span class="string">"5971cd4835e57f0331e944c8"</span>)</span><br><span class="line">    essie:PRIMARY&gt; cfg.members[<span class="number">0</span>].priority = <span class="number">0</span><span class="comment">;</span></span><br><span class="line"><span class="number">0</span></span><br><span class="line">jiessie:PRIMARY&gt; cfg.members[<span class="number">0</span>].hidden = <span class="literal">true</span><span class="comment">;</span></span><br><span class="line"><span class="literal">true</span></span><br><span class="line">jiessie:PRIMARY&gt; rs.reconfig(cfg)<span class="comment">;</span></span><br><span class="line">&#123; <span class="string">"ok"</span> : <span class="number">1</span> &#125;</span><br><span class="line">jiessie:PRIMARY&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="修改引擎，删除原数据-2"><a href="#修改引擎，删除原数据-2" class="headerlink" title="修改引擎，删除原数据"></a>修改引擎，删除原数据</h5><figure class="highlight autoit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo localhost:27017</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">27017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:SECONDARY&gt; rs.slaveOk()<span class="comment">;</span></span><br><span class="line">jiessie:SECONDARY&gt; use admin<span class="comment">;</span></span><br><span class="line">switched <span class="keyword">to</span> db admin</span><br><span class="line">jiessie:SECONDARY&gt; db.shutdownServer()<span class="comment">;                                                      #关闭服务</span></span><br><span class="line">server should be down...</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># rm -rf /hwdata/data/mongodb1/data/*                        #删除原引擎数据</span></span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># cat /hwdata/data/mongodb1/conf/mongodb.conf |grep sto      #查看原配置</span></span><br><span class="line">storageEngine=mmapv1</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># sed -i <span class="string">'s@storageEngine=mmapv1@storageEngine=wiredTiger@g'</span> /hwdata/data/mongodb1/conf/mongodb.conf    #修改配置文件的引擎部分</span></span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># cat /hwdata/data/mongodb2/conf/mongodb.conf |grep sto      #查看新配置</span></span><br><span class="line">storageEngine=wiredTiger</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongod -f /hwdata/data/mongodb1/conf/mongodb.conf     #启动服务</span></span><br><span class="line">note: noprealloc may hurt performance <span class="keyword">in</span> many applications</span><br><span class="line">about <span class="keyword">to</span> fork child process, waiting <span class="keyword">until</span> server is ready <span class="keyword">for</span> connections.</span><br><span class="line">forked process: <span class="number">2157</span></span><br><span class="line">child process started successfully, parent exiting</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo localhost:27017 --eval <span class="string">"db.serverStatus()"</span>|grep <span class="string">'"name"'</span>    #验证是否修改成功</span></span><br><span class="line">                <span class="string">"name"</span> : <span class="string">"wiredTiger"</span>,</span><br><span class="line">[root<span class="symbol">@iZuf6c08fdv8duubho2b0rZ</span> ~]<span class="meta"># /usr/local/mongodb1/bin/mongo localhost:27017</span></span><br><span class="line">MongoDB shell version v3<span class="number">.4</span><span class="number">.4</span></span><br><span class="line">connecting <span class="keyword">to</span>: localhost:<span class="number">27017</span></span><br><span class="line">MongoDB server version: <span class="number">3.4</span><span class="number">.4</span></span><br><span class="line">jiessie:SECONDARY&gt; <span class="keyword">exit</span>                     <span class="meta">#验证初始化同步是否成功，SECONDARY状态表示已经是从节点</span></span><br></pre></td></tr></table></figure>
+<h5 id="加入副本集-2"><a href="#加入副本集-2" class="headerlink" title="加入副本集"></a>加入副本集</h5><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br></pre></td><td class="code"><pre><span class="line">[root@iZuf6c08fdv8duubho2b0rZ ~]<span class="comment"># /usr/local/mongodb1/bin/mongo localhost:28017</span></span><br><span class="line">MongoDB shell <span class="keyword">version</span> v3.4.4</span><br><span class="line">connecting to: mongodb:<span class="string">//127.0.0.1</span><span class="function">:27017</span></span><br><span class="line">MongoDB server <span class="keyword">version</span>: 3.4.4</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg = rs.config<span class="params">()</span>;</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"_id"</span> : <span class="string">"jiessie"</span>,</span><br><span class="line">        <span class="string">"version"</span> : 7,</span><br><span class="line">        <span class="string">"protocolVersion"</span> : NumberLong<span class="params">(1)</span>,</span><br><span class="line">        <span class="string">"members"</span> : [</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 0,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:27017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 0,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 1,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:28017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 2,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;,</span><br><span class="line">                &#123;</span><br><span class="line">                        <span class="string">"_id"</span> : 2,</span><br><span class="line">                        <span class="string">"host"</span> : <span class="string">"192.168.7.50:29017"</span>,</span><br><span class="line">                        <span class="string">"arbiterOnly"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"buildIndexes"</span> : <span class="literal">true</span>,</span><br><span class="line">                        <span class="string">"hidden"</span> : <span class="literal">false</span>,</span><br><span class="line">                        <span class="string">"priority"</span> : 1,</span><br><span class="line">                        <span class="string">"tags"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                        &#125;,</span><br><span class="line">                        <span class="string">"slaveDelay"</span> : NumberLong<span class="params">(0)</span>,</span><br><span class="line">                        <span class="string">"votes"</span> : 1</span><br><span class="line">                &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">"settings"</span> : &#123;</span><br><span class="line">                <span class="string">"chainingAllowed"</span> : <span class="literal">true</span>,</span><br><span class="line">                <span class="string">"heartbeatIntervalMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"heartbeatTimeoutSecs"</span> : 10,</span><br><span class="line">                <span class="string">"electionTimeoutMillis"</span> : 10000,</span><br><span class="line">                <span class="string">"catchUpTimeoutMillis"</span> : 2000,</span><br><span class="line">                <span class="string">"getLastErrorModes"</span> : &#123;</span><br><span class="line"></span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"getLastErrorDefaults"</span> : &#123;</span><br><span class="line">                        <span class="string">"w"</span> : 1,</span><br><span class="line">                        <span class="string">"wtimeout"</span> : 0</span><br><span class="line">                &#125;,</span><br><span class="line">                <span class="string">"replicaSetId"</span> : ObjectId<span class="params">("5971cd4835e57f0331e944c8")</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[0]<span class="string">.hidden</span> = <span class="literal">false</span>;     <span class="comment">#加入副本集，对应用可见，其中[0]表示27017端口</span></span><br><span class="line"><span class="literal">false</span></span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; cfg.members[0]<span class="string">.priority</span> = 3;       <span class="comment">#修改为之前的优先级</span></span><br><span class="line">3</span><br><span class="line">jiessie<span class="function">:PRIMARY</span>&gt; rs.reconfig<span class="params">(cfg)</span>;</span><br><span class="line">&#123; <span class="string">"ok"</span> : 1 &#125;</span><br><span class="line">jiessie<span class="function">:SECONDARY</span>&gt;                                  <span class="comment">#等待几秒后，PRIMARY会变成SECONDARY</span></span><br></pre></td></tr></table></figure>
+<h2 id="结束语"><a href="#结束语" class="headerlink" title="结束语"></a>结束语</h2><p>mongodb作为发展迅速的开源数据库一员，版本迭代升级很快，目前使用旧引擎的公司不在小数，新引擎的优点足以促使其升级引擎。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+<div>
+  
+    <div>
+    
+        <div style="text-align:center;color: #ccc;font-size:14px;">-------------本文结束<i class="fa fa-paw"></i>感谢您的阅读-------------</div>
+    
+</div>
+
+  
+</div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/mongo/" rel="tag"># mongo</a>
+          
+            <a href="/tags/mongodb/" rel="tag"># mongodb</a>
+          
+            <a href="/tags/MMAPv1/" rel="tag"># MMAPv1</a>
+          
+            <a href="/tags/WiredTiger/" rel="tag"># WiredTiger</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/使用Percona-Data-Recovery-Tool-for-InnoDB恢复数据.html" rel="next" title="使用Percona Data Recovery Tool for InnoDB恢复数据">
+                <i class="fa fa-chevron-left"></i> 使用Percona Data Recovery Tool for InnoDB恢复数据
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/AWS-EC2搭建MHA-VIP-MySQL5-7.html" rel="prev" title="AWS EC2搭建MHA+VIP+MySQL5.7">
+                AWS EC2搭建MHA+VIP+MySQL5.7 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image"
+                src="/images/jiessie.png"
+                alt="Jiessie" />
+            
+              <p class="site-author-name" itemprop="name">Jiessie</p>
+              <p class="site-description motion-element" itemprop="description">最怕一生碌碌无为,还说平凡难能可贵！</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">10</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">7</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">26</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://www.percona.com/" target="_blank" title="Percona">
+                      
+                        <i class="fa fa-fw fa-globe"></i>Percona</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="https://mariadb.com/kb/zh-cn/mariadb/" target="_blank" title="MariaDB">
+                      
+                        <i class="fa fa-fw fa-globe"></i>MariaDB</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="http://mysqlserverteam.com/" target="_blank" title="serverteam">
+                      
+                        <i class="fa fa-fw fa-globe"></i>serverteam</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="http://mysqlhighavailability.com/" target="_blank" title="highavailability">
+                      
+                        <i class="fa fa-fw fa-globe"></i>highavailability</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="http://mysql.taobao.org/monthly/" target="_blank" title="淘宝月报">
+                      
+                        <i class="fa fa-fw fa-globe"></i>淘宝月报</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="http://dimitrik.free.fr/blog/" target="_blank" title="dimitrik">
+                      
+                        <i class="fa fa-fw fa-globe"></i>dimitrik</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#存储引擎"><span class="nav-number">2.</span> <span class="nav-text">存储引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#WiredTiger、MMAPv1对比"><span class="nav-number">2.1.</span> <span class="nav-text">WiredTiger、MMAPv1对比</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#性能、性能"><span class="nav-number">2.1.1.</span> <span class="nav-text">性能、性能</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#压缩、加密"><span class="nav-number">2.1.2.</span> <span class="nav-text">压缩、加密</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#存储方式"><span class="nav-number">2.1.3.</span> <span class="nav-text">存储方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#内存使用"><span class="nav-number">2.1.4.</span> <span class="nav-text">内存使用</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#准备"><span class="nav-number">3.</span> <span class="nav-text">准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#迁移"><span class="nav-number">4.</span> <span class="nav-text">迁移</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#安装"><span class="nav-number">4.1.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#配置文件"><span class="nav-number">4.2.</span> <span class="nav-text">配置文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#搭建副本集"><span class="nav-number">4.3.</span> <span class="nav-text">搭建副本集</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查看存储引擎"><span class="nav-number">4.3.1.</span> <span class="nav-text">查看存储引擎</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#测试副本集"><span class="nav-number">4.3.2.</span> <span class="nav-text">测试副本集</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#迁移步骤"><span class="nav-number">4.4.</span> <span class="nav-text">迁移步骤</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#开始迁移"><span class="nav-number">4.5.</span> <span class="nav-text">开始迁移</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#29017实例"><span class="nav-number">4.5.1.</span> <span class="nav-text">29017实例</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#设置节点隐藏"><span class="nav-number">4.5.1.1.</span> <span class="nav-text">设置节点隐藏</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#修改引擎，删除原数据"><span class="nav-number">4.5.1.2.</span> <span class="nav-text">修改引擎，删除原数据</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#加入副本集"><span class="nav-number">4.5.1.3.</span> <span class="nav-text">加入副本集</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#28017实例"><span class="nav-number">4.5.2.</span> <span class="nav-text">28017实例</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#设置节点隐藏-1"><span class="nav-number">4.5.2.1.</span> <span class="nav-text">设置节点隐藏</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#修改引擎，删除原数据-1"><span class="nav-number">4.5.2.2.</span> <span class="nav-text">修改引擎，删除原数据</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#加入副本集-1"><span class="nav-number">4.5.2.3.</span> <span class="nav-text">加入副本集</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#27017实例"><span class="nav-number">4.5.3.</span> <span class="nav-text">27017实例</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#设置节点隐藏-2"><span class="nav-number">4.5.3.1.</span> <span class="nav-text">设置节点隐藏</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#修改引擎，删除原数据-2"><span class="nav-number">4.5.3.2.</span> <span class="nav-text">修改引擎，删除原数据</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#加入副本集-2"><span class="nav-number">4.5.3.3.</span> <span class="nav-text">加入副本集</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#结束语"><span class="nav-number">5.</span> <span class="nav-text">结束语</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Jiessie</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.4</div>
+
+
+
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共字</span>
+</div>
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+
+<script type="text/javascript" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+
+</body>
+</html>

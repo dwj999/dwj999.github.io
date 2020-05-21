@@ -425,7 +425,7 @@
 <li>net_read_timeout和net_write_timeout    则是在连接繁忙阶段（query）起作用。<h3 id="mysql通信协议"><a href="#mysql通信协议" class="headerlink" title="mysql通信协议"></a>mysql通信协议</h3>mysql 客户端和服务端之间的通信协议是”半双工”， 在任何一个时刻，要么是由服务端向客户端发送数据，要么是由客户端向服务端发送数据，这两个动作不能同时发生。参数max_allowed_packet在做导入数据的时候，net_buffer_length在缓冲数据的时候就很重要了。<h3 id="connect-timeout"><a href="#connect-timeout" class="headerlink" title="connect_timeout"></a>connect_timeout</h3><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Connect_timeout</span><br><span class="line">The number of seconds that the mysqld<span class="built_in"> server </span>waits <span class="keyword">for</span> a connect packet before responding with Bad handshake</span><br></pre></td></tr></table></figure>
 </li>
 </ul>
-<p>MySQL连接一次连接需求经过6次“握手”方可成功，任意一次“握手”失败都有可能导致连接失败，前三次握手可以简单理解为TCP建立连接所必须的三次握手，MySQL无法控制，更多的受制于不TCP协议的不同实现，后面的三次握手过程超时与connect_timeout有关。<br><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/28BE2AB00D3448B4A755502EC85AEDEC/56300" alt="image"></p>
+<p>MySQL连接一次连接需求经过6次“握手”方可成功，任意一次“握手”失败都有可能导致连接失败，前三次握手可以简单理解为TCP建立连接所必须的三次握手，MySQL无法控制，更多的受制于不TCP协议的不同实现，后面的三次握手过程超时与connect_timeout有关。<br><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_1.png" alt="image"></p>
 <p>建立连接步骤：</p>
 <ol>
 <li>客户端向DB发起TCP握手</li>
@@ -445,9 +445,9 @@
 <h3 id="interactive-timeout-amp-amp-wait-timeout"><a href="#interactive-timeout-amp-amp-wait-timeout" class="headerlink" title="interactive_timeout &amp;&amp; wait_timeout"></a>interactive_timeout &amp;&amp; wait_timeout</h3><p>当query处理完成后，连接会进入到空闲阶段，此时受interactive_timeout和wait_timeout控制。关于interactive_timeout和wait_timeout，session和global有继承关系，可以自己测试，这里有篇<a href="http://blog.itpub.net/22664653/viewspace-2143671/" target="_blank" rel="noopener">文章</a>，测试的很详细。</p>
 <h2 id="MySQL超时类型"><a href="#MySQL超时类型" class="headerlink" title="MySQL超时类型"></a>MySQL超时类型</h2><h3 id="Got-timeout-reading-communication-packets"><a href="#Got-timeout-reading-communication-packets" class="headerlink" title="Got timeout reading communication packets"></a>Got timeout reading communication packets</h3><h4 id="连接超时"><a href="#连接超时" class="headerlink" title="连接超时"></a>连接超时</h4><p>设置interactive_timeout和wait_timeout，使用mysql客户端连接，等待设置的超时时间后被mysql kill掉，在日志观察详情</p>
 <h5 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h5><p>设置interactive_timeout和wait_timeout</p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/C6CC5EA5C719496F8FDB4CFD3DE73608/56333" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_2.png" alt="image"></p>
 <h5 id="观察日志"><a href="#观察日志" class="headerlink" title="观察日志"></a>观察日志</h5><p>通过观察error log查看连接是否断开</p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/73D6BEFFA26143E68AD079487683D584/56342" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_3.png" alt="image"></p>
 <p>其中，连接的thread_id为2885，超过10s后断开，出现<font color="FF0000"><b>日志详情</b></font><br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T10:</span><span class="number">11</span>:<span class="number">48.650754</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">2885</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">2885</span> to <span class="string">db:</span> <span class="string">'unconnected'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got timeout reading communication packets).</span><br></pre></td></tr></table></figure></p>
 <h4 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/communication-errors.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
 <h3 id="Got-an-error-reading-communication-packets"><a href="#Got-an-error-reading-communication-packets" class="headerlink" title="Got an error reading communication packets"></a>Got an error reading communication packets</h3><h4 id="客户端异常退出-数据包异常"><a href="#客户端异常退出-数据包异常" class="headerlink" title="客户端异常退出(数据包异常)"></a>客户端异常退出(<font color="FF0000"><b>数据包异常</b></font>)</h4><p>使用pt-kill工具监控mysql的语句，通过在mysql确认pt-kill守护进程存在，kill掉此进程，观察日志的详情</p>
@@ -459,46 +459,47 @@
 <li>运行pt-kill进程<br>命令：<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> localhost <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql/data/mysql.sock</span> <span class="params">--match-host=</span><span class="string">"127.0.0.1|localhost"</span> <span class="params">--match-user=</span><span class="string">"root"</span> <span class="params">--match-db=</span><span class="string">"sysbench|test"</span> <span class="params">--match-command=</span><span class="string">"Query"</span> <span class="params">--match-state=</span><span class="string">"statistics"</span> <span class="params">--match-info=</span><span class="string">"(?i-xsm:select)"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1  <span class="params">--kill-query</span> <span class="params">--daemonize</span> <span class="params">--print</span> <span class="params">--log=/tmp/pt-kill</span>.log</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/497DD7C631994E3CACA95F53B6F9D19F/56374" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_4.png" alt="image"></p>
 <ol start="2">
 <li>查看pt-kill进程</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/A945DA8589E04A3E91FE95F2F35ED1A1/56379" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_5.png" alt="image"></p>
 <ol start="3">
 <li>查看mysql相关pt-kill进程</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6A098DC8A1514D07B8D6482ABA838CC9/56384" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_6.png" alt="image"></p>
 <ol start="4">
 <li>Kill掉pt-kill进程</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/094EE5CC63664D248475A9738DBABA62/56389" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_7.png" alt="image"></p>
 <ol start="5">
 <li>观察日志<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T15:</span><span class="number">21</span>:<span class="number">32.254962</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">62476</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">62476</span> to <span class="string">db:</span> <span class="string">'unconnected'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error readin</span><br><span class="line">g communication packets).</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/75F0451B07D54F899E369FF2C4C9634B/56395" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_8.png" alt="image"></p>
 <h4 id="网络错误"><a href="#网络错误" class="headerlink" title="网络错误"></a>网络错误</h4><h5 id="准备-2"><a href="#准备-2" class="headerlink" title="准备"></a>准备</h5><p>使用linux自带的tc命令篡改数据包，设置网卡随机产生30%的<font color="FF0000"><b>损坏数据包</b></font>，也可使用tc的其他场景，比如<font color="FF0000"><b>数据包重复</b></font>等待去做各种测试，这里仅使用2种场景分别测试损坏数据包时，是否产生Got an error writing communication packets的情况</p>
 <ol>
 <li>设置tc数据包修改: 命令，由于测试的机器包括多块网卡，这里全部设置：<figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tc  qdisc  <span class="keyword">add</span><span class="bash">  dev  eth0  root  netem  corrupt  30% </span></span><br><span class="line"><span class="bash">tc  qdisc  add  dev  eth1  root  netem  corrupt  30%</span></span><br><span class="line"><span class="bash">tc  qdisc  add  dev  lo  root  netem  corrupt  30%</span></span><br></pre></td></tr></table></figure>
 </li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/36C7DF3E22D346D888ED42F891EDC9B8/56411" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_9.png" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_10.png" alt="image"></p>
 <ol start="2">
 <li>ping结果查看: 通过ping查看，tc的设置已经生效，出现了损坏数据包</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/B5DEE10537C14862AB79F5E43FB5E8CE/56419" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_11.png" alt="image"></p>
 <h5 id="sysbench测试"><a href="#sysbench测试" class="headerlink" title="sysbench测试"></a>sysbench测试</h5><p>通过在sysbench压测过程中，人工设置，模拟网络出现问题的情况，观察日志</p>
 <ol>
 <li>sysbench压测<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/usr/local/bin/sysbench <span class="attribute">--db-driver</span>=mysql <span class="attribute">--mysql-socket</span>=/opt/mysql/data/mysql.sock <span class="attribute">--tables</span>=1 <span class="attribute">--table_size</span>=1000000 <span class="attribute">--report-interval</span>=10 <span class="attribute">--time</span>=3600 <span class="attribute">--mysql-port</span>=3306 <span class="attribute">--mysql-user</span>=root <span class="attribute">--mysql-password</span>=111111 <span class="attribute">--mysql-db</span>=sysbench <span class="attribute">--mysql-host</span>=10.30.167.90 <span class="attribute">--max-requests</span>=0 /usr/local/share/sysbench/oltp_read_write.lua <span class="attribute">--threads</span>=4 run</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
 <p>压测结果：</p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/5841D572118D48FDA7E332AA6EDA11FA/56431" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_12.png" alt="image"></p>
 <ol start="2">
 <li>观察error log</li>
 </ol>
 <p>已经出现了Got an error writing communication packets相关告警信息<br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.858793</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65764</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65764</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.899059</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65767</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65767</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.899260</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65765</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65765</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">35</span>:<span class="number">51.899339</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">65766</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">65766</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error writing communication packets).</span><br></pre></td></tr></table></figure></p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6A63517EECD04706BD7573A981A244B0/56445" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_13.png" alt="image"></p>
 <h5 id="php测试"><a href="#php测试" class="headerlink" title="php测试"></a>php测试</h5><p>通过以运行php代码的形式来访问数据，人工设置，模拟网络出现问题的情况，观察日志</p>
 <ol>
 <li>php代码运行<br>这里以互联网在线模拟为例子，地址：<a href="https://www.dooccn.com/php/" target="_blank" rel="noopener">https://www.dooccn.com/php/</a></li>
@@ -508,14 +509,14 @@
 <li>观察error log</li>
 </ol>
 <p>已经出现了Got an error writing communication packets相关告警信息<br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-02</span><span class="string">T16:</span><span class="number">37</span>:<span class="number">31.183490</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">66089</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">66089</span> to <span class="string">db:</span> <span class="string">'mysql'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'106.14.17.222'</span> (Got an error reading communication packets).</span><br></pre></td></tr></table></figure></p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/C0ED8A660BF64331838CD739A8640316/56460" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_14.png" alt="image"></p>
 <h4 id="max-prepared-stmt-count"><a href="#max-prepared-stmt-count" class="headerlink" title="max_prepared_stmt_count"></a>max_prepared_stmt_count</h4><ul>
 <li>max_prepared_stmt_count<br>此参数限制了同一时间在mysqld上所有session中prepared 语句的上限。一般做压力测试的prepare阶段可以会遇到此参数设置较小的问题，同时日志中会返回Got an error reading communication packets的错误，这里不再测试，在做压力测试时，需要将此参数设置大些。</li>
 </ul>
 <h5 id="准备-3"><a href="#准备-3" class="headerlink" title="准备"></a>准备</h5><ol>
 <li>设置max_prepared_stmt_count</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6A39D10887534314BEA965FC5FAC99E7/56474" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_15.png" alt="image"></p>
 <h5 id="sysbench测试-1"><a href="#sysbench测试-1" class="headerlink" title="sysbench测试"></a>sysbench测试</h5><ol>
 <li><p>运行压力测试</p>
 <figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/usr/local/bin/sysbench <span class="attribute">--db-driver</span>=mysql <span class="attribute">--mysql-socket</span>=/opt/mysql/data/mysql.sock <span class="attribute">--tables</span>=1 <span class="attribute">--table_size</span>=1000000 <span class="attribute">--report-interval</span>=10 <span class="attribute">--time</span>=3600 <span class="attribute">--mysql-port</span>=3306 <span class="attribute">--mysql-user</span>=root <span class="attribute">--mysql-password</span>=111111 <span class="attribute">--mysql-db</span>=sysbench <span class="attribute">--mysql-host</span>=10.30.167.90 <span class="attribute">--max-requests</span>=0 /usr/local/share/sysbench/oltp_read_write.lua <span class="attribute">--threads</span>=4 run</span><br></pre></td></tr></table></figure>
@@ -524,53 +525,53 @@
 </li>
 </ol>
 <p>在11.04的时候运行的压力测试</p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/6F048BDE27024754AF32AF82ECBE97AF/56485" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_16.png" alt="image"></p>
 <ol start="3">
 <li>查看mysql log<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T11:</span><span class="number">04</span>:<span class="number">07.696809</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">5366</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">5366</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error reading communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T11:</span><span class="number">04</span>:<span class="number">07.696884</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">5365</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">5365</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error reading communication packets).</span><br><span class="line"><span class="number">2018</span><span class="number">-08</span><span class="number">-03</span><span class="string">T11:</span><span class="number">04</span>:<span class="number">07.696959</span>+<span class="number">08</span>:<span class="number">00</span> <span class="number">5364</span> [Note] [MY<span class="number">-010914</span>] [Server] Aborted connection <span class="number">5364</span> to <span class="string">db:</span> <span class="string">'sysbench'</span> <span class="string">user:</span> <span class="string">'root'</span> <span class="string">host:</span> <span class="string">'localhost'</span> (Got an error reading communication packets).</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/D648C5A248654AF1A0C9BF72CC2D6115/56493" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_17.png" alt="image"></p>
 <h4 id="其他-1"><a href="#其他-1" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/communication-errors.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
 <h3 id="Lost-connection-to-MySQL-server-during-query"><a href="#Lost-connection-to-MySQL-server-during-query" class="headerlink" title="Lost connection to MySQL server during query"></a>Lost connection to MySQL server during query</h3><h4 id="超时connect-timeout"><a href="#超时connect-timeout" class="headerlink" title="超时connect_timeout"></a>超时connect_timeout</h4><p>使用linux自带的tc命令设置网络延迟，达到测试所需要的效果</p>
 <h5 id="准备-4"><a href="#准备-4" class="headerlink" title="准备"></a>准备</h5><ol>
 <li>设置tc数据包延迟：命令，由于测试的机器包括多块网卡，这里全部设置：<figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">tc qdisc <span class="keyword">add</span><span class="bash"> dev eth1 root netem delay 11000ms</span></span><br><span class="line"><span class="bash">tc qdisc add dev eth0 root netem delay 11000ms</span></span><br></pre></td></tr></table></figure>
 </li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/4A4FA6BF496442FC9ED50867A33FED58/56511" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_18.png" alt="image"></p>
 <h5 id="登录连接测试"><a href="#登录连接测试" class="headerlink" title="登录连接测试"></a>登录连接测试</h5><p>通过远程连接其他mysql服务器，查看登录效果，超过了默认connect_timeout的10s，报Lost connection to MySQL server during query错误</p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/29180DCBD601443D976546FB750E92C3/56517" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_19.png" alt="image"></p>
 <h4 id="客户端异常退出-数据包正常"><a href="#客户端异常退出-数据包正常" class="headerlink" title="客户端异常退出(数据包正常)"></a>客户端异常退出(<font color="FF0000"><b>数据包正常</b></font>)</h4><p>开启2个session窗口，连接同一个mysql实例，第1个session开启查询，第2个session去kill掉第一个session</p>
 <h5 id="准备-5"><a href="#准备-5" class="headerlink" title="准备"></a>准备</h5><ol>
 <li>Session1开启查询</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/581A709431A84099966FDC4E86E468ED/56529" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_20.png" alt="image"></p>
 <h5 id="手动kill"><a href="#手动kill" class="headerlink" title="手动kill"></a>手动kill</h5><ol>
 <li>Session2查看processlist</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/A9AD3AE7828E4E268D51DE32F467CED8/56537" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_21.png" alt="image"></p>
 <ol start="2">
 <li>session2 手动kill session1连接</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/61DD1014F59247F49A80BB874EDC2081/56542" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_22.png" alt="image"></p>
 <ol start="3">
 <li>session1查看查询</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/7634D7F4633C4B6B9B91B68BD9D509C1/56544" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_23.png" alt="image"></p>
 <h4 id="其他-2"><a href="#其他-2" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/error-lost-connection.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
 <h3 id="MySQL-server-has-gone-away"><a href="#MySQL-server-has-gone-away" class="headerlink" title="MySQL server has gone away"></a>MySQL server has gone away</h3><h4 id="MySQL-server-has-gone-away-1"><a href="#MySQL-server-has-gone-away-1" class="headerlink" title="MySQL server has gone away"></a>MySQL server has gone away</h4><p>设置mysql的interactive_timeout，使用mysql客户端开启一个窗口</p>
 <h5 id="准备-6"><a href="#准备-6" class="headerlink" title="准备"></a>准备</h5><ol>
 <li>设置interactive_timeout的值</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/A41E122F30354DB197F92226C824E448/56564" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_24.png" alt="image"></p>
 <h5 id="执行查询"><a href="#执行查询" class="headerlink" title="执行查询"></a>执行查询</h5><ol>
 <li>在同一窗口内执行查询select sleep(10)</li>
 </ol>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/46EED1F1BC714F3EB49CCB9B4FCB3630/56567" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_25.png" alt="image"></p>
 <ol start="2">
 <li>等待超过interactive_timeout时间后，再次执行查询</li>
 </ol>
 <p>已经出现的错误日志：MySQL server has gone away</p>
-<p><img src="https://note.youdao.com/yws/public/resource/e8f6ebc6c4a92f21125010be73e3e162/xmlnote/EEF952361B1F44BDB719401996058B4C/56569" alt="image"></p>
+<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_TimeOut_26.png" alt="image"></p>
 <h4 id="其他-3"><a href="#其他-3" class="headerlink" title="其他"></a>其他</h4><p>其他常见的错误，可以参考<a href="https://dev.mysql.com/doc/refman/5.7/en/gone-away.html" target="_blank" rel="noopener">官方文档</a>，有详情的介绍，也可根据实际测试结果来验证。</p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><figure class="highlight dts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="symbol">http:</span><span class="comment">//mysql.taobao.org/monthly/2016/07/04/</span></span><br><span class="line"><span class="symbol">http:</span><span class="comment">//mysql.taobao.org/monthly/2017/05/04/</span></span><br><span class="line"><span class="symbol">http:</span><span class="comment">//www.importnew.com/29055.html</span></span><br><span class="line"><span class="symbol">https:</span><span class="comment">//www.cnblogs.com/cchust/p/5025880.html</span></span><br><span class="line"><span class="symbol">https:</span><span class="comment">//my.oschina.net/alchemystar/blog/833598</span></span><br></pre></td></tr></table></figure>
 

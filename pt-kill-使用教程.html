@@ -111,7 +111,7 @@
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill11.png">
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill12.png">
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill13.png">
-<meta property="og:updated_time" content="2020-05-26T00:36:15.857Z">
+<meta property="og:updated_time" content="2020-05-26T00:38:44.252Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="pt-kill 使用教程">
 <meta name="twitter:description" content="介绍pt-kill 是一个优秀的kill MySQL连接的工具,是percona toolkit的一部分,使用perl语言编写.简单高效.能够按照一定的规则匹配kill掉MySQL中的连接,达到有效保护服务的目的. 用途pt-kill主要适用于MySQL实例中异常出现的会话导致整个实例负载过高,甚至出现不可用的情况下,进而影响应用,影响业务的场景.包括以下:  手动维护MySQL连接,比如连接突然">
@@ -343,18 +343,7 @@
               
               
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/percona/" itemprop="url" rel="index">
-                    <span itemprop="name">percona</span>
-                  </a>
-                </span>
-
-                
-                
-                  ， 
-                
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/percona/工具/" itemprop="url" rel="index">
+                  <a href="/categories/工具/" itemprop="url" rel="index">
                     <span itemprop="name">工具</span>
                   </a>
                 </span>
@@ -802,7 +791,7 @@
 <h3 id="USER匹配查询"><a href="#USER匹配查询" class="headerlink" title="USER匹配查询"></a>USER匹配查询</h3><p>1.通过pt-kill连接user匹配并打印出来<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-user=</span><span class="string">"root"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
 <p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill5.png" alt="image"></p>
 <p>仅匹配了user为root,并且未指定其他匹配,从输出上看command为Query,Sleep都打印了出来</p>
-<h3 id="Command匹配查询"><a href="#Command匹配查询" class="headerlink" title="Command匹配查询"></a>Command匹配查询</h3><p>1.通过pt-kill连接command匹配并打印出来,分别打印command只包括Sleep和包括Sleep及Query的示例<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-command=</span><span class="string">"Sleep"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-command=</span><span class="string">"Sleep|Query"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="Command匹配查询"><a href="#Command匹配查询" class="headerlink" title="Command匹配查询"></a>Command匹配查询</h3><p>1.通过pt-kill连接command匹配并打印出来,分别打印c<br>mmand只包括Sleep和包括Sleep及Query的示例<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-command=</span><span class="string">"Sleep"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-command=</span><span class="string">"Sleep|Query"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
 <p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill6.png" alt="image"></p>
 <p>当command匹配为Sleep时,只打印了command为Sleep的匹配查询<br><br>当command匹配为Sleep和Query时,打印了command为Sleep和Query的匹配查询<br></p>
 <font color="FF000">多个条件匹配时,用|分割</font>

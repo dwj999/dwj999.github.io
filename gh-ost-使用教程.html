@@ -82,8 +82,6 @@
 
 
 
-  
-
 
   <link rel="alternate" href="/atom.xml" title="Jiessie's' Blog" type="application/atom+xml" />
 
@@ -102,7 +100,7 @@
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/gh-ost01.png">
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/gh-ost02.png">
-<meta property="og:updated_time" content="2020-06-01T10:46:32.851Z">
+<meta property="og:updated_time" content="2020-06-01T10:55:28.609Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="gh-ost 使用教程">
 <meta name="twitter:description" content="引言gh-ost 是github开源的在线DDL工具，从发布之后就受到了同行的广泛关注，由于其采用的伪装从库的方式同步增量DML，比pt-online-schema-change采用的触发器更友好，且生产开销较小，是一款很优秀的在线DDL工具。 原理gh-ost 介绍gh-ost 作为一个伪装的备库，可以从主库/备库上拉取 binlog，过滤之后重新应用到主库上去，相当于主库上的增量操作通过 bi">
@@ -456,10 +454,10 @@
 <table>
 <thead>
 <tr>
-<th><div style="width:50px">类别</div></th>
-<th><div style="width:300px">row copy(A)</div></th>
-<th><div style="width:300px">DML(B)</div></th>
-<th><div style="width:300px">apply binlog(C)</div></th>
+<th>类别</th>
+<th>row copy(A)</th>
+<th>DML(B)</th>
+<th>apply binlog(C)</th>
 </tr>
 </thead>
 <tbody>
@@ -511,7 +509,7 @@
 <li>T9 释放unlock tables</li>
 <li>T10-T11 释放其他临时表</li>
 </ul>
-<h3 id="官方参考"><a href="#官方参考" class="headerlink" title="官方参考"></a>官方参考</h3><p>作者写了三篇文章解释cut-over操作的思路和切换算法，<a href="http://code.openark.org/blog/mysql/solving-the-facebook-osc-non-atomic-table-swap-problem" target="_blank" rel="noopener">链接1</a>，<a href="https://note.youdao.com/" target="_blank" rel="noopener">http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-ii</a>，<a href="http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-iii-making-it-atomic" target="_blank" rel="noopener">链接3</a>，可参考，这里仅列出官方示例说明:<br></p>
+<h3 id="官方参考"><a href="#官方参考" class="headerlink" title="官方参考"></a>官方参考</h3><p>作者写了三篇文章解释cut-over操作的思路和切换算法，<a href="http://code.openark.org/blog/mysql/solving-the-facebook-osc-non-atomic-table-swap-problem" target="_blank" rel="noopener">链接1</a>，<a href="http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-ii" target="_blank" rel="noopener">链接2</a>，<a href="http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-iii-making-it-atomic" target="_blank" rel="noopener">链接3</a>，可参考，这里仅列出官方示例说明:<br></p>
 <p>The solution we offer is now based on two connections only (as opposed to three, in the optimistic approach). “Our” connections will be C10, C20. The “normal” app connections are C1..C9, C11..C19, C21..C29.<br></p>
 <ul>
 <li>Connections C1..C9 operate on tbl with normal DML: INSERT, UPDATE, DELETE</li>
@@ -550,8 +548,8 @@
 <table>
 <thead>
 <tr>
-<th>参数</th>
-<th>描述</th>
+<th><div style="width:50px">参数</div></th>
+<th><div style="width:800px">描述</div></th>
 </tr>
 </thead>
 <tbody>
@@ -665,8 +663,7 @@
 </tr>
 <tr>
 <td>-force-named-cut-over</td>
-<td>如果为true，则’unpostpone</td>
-<td>cut-over’交互式命令必须命名迁移的表</td>
+<td>如果为true，则’unpostpone cut-over’交互式命令必须命名迁移的表</td>
 </tr>
 <tr>
 <td>-force-table-names</td>

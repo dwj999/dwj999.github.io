@@ -454,10 +454,10 @@
 <table>
 <thead>
 <tr>
-<th><div style="width:50px">类别</div></th>
-<th><div style="width:300px">row copy(A)</div></th>
-<th><div style="width:300px">DML(B)</div></th>
-<th><div style="width:300px">apply binlog(C)</div></th>
+<th>类别</th>
+<th>row copy(A)</th>
+<th>DML(B)</th>
+<th>apply binlog(C)</th>
 </tr>
 </thead>
 <tbody>
@@ -509,7 +509,7 @@
 <li>T9 释放unlock tables</li>
 <li>T10-T11 释放其他临时表</li>
 </ul>
-<h3 id="官方参考"><a href="#官方参考" class="headerlink" title="官方参考"></a>官方参考</h3><p>作者写了三篇文章解释cut-over操作的思路和切换算法，<a href="http://code.openark.org/blog/mysql/solving-the-facebook-osc-non-atomic-table-swap-problem" target="_blank" rel="noopener">链接1</a>，<a href="https://note.youdao.com/" target="_blank" rel="noopener">http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-ii</a>，<a href="http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-iii-making-it-atomic" target="_blank" rel="noopener">链接3</a>，可参考，这里仅列出官方示例说明:<br></p>
+<h3 id="官方参考"><a href="#官方参考" class="headerlink" title="官方参考"></a>官方参考</h3><p>作者写了三篇文章解释cut-over操作的思路和切换算法，<a href="http://code.openark.org/blog/mysql/solving-the-facebook-osc-non-atomic-table-swap-problem" target="_blank" rel="noopener">链接1</a>，<a href="http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-ii" target="_blank" rel="noopener">链接2</a>，<a href="http://code.openark.org/blog/mysql/solving-the-non-atomic-table-swap-take-iii-making-it-atomic" target="_blank" rel="noopener">链接3</a>，可参考，这里仅列出官方示例说明:<br></p>
 <p>The solution we offer is now based on two connections only (as opposed to three, in the optimistic approach). “Our” connections will be C10, C20. The “normal” app connections are C1..C9, C11..C19, C21..C29.<br></p>
 <ul>
 <li>Connections C1..C9 operate on tbl with normal DML: INSERT, UPDATE, DELETE</li>
@@ -548,8 +548,8 @@
 <table>
 <thead>
 <tr>
-<th>参数</th>
-<th>描述</th>
+<th><div style="width:50px">参数</div></th>
+<th><div style="width:800px">描述</div></th>
 </tr>
 </thead>
 <tbody>
@@ -663,8 +663,7 @@
 </tr>
 <tr>
 <td>-force-named-cut-over</td>
-<td>如果为true，则’unpostpone</td>
-<td>cut-over’交互式命令必须命名迁移的表</td>
+<td>如果为true，则’unpostpone cut-over’交互式命令必须命名迁移的表</td>
 </tr>
 <tr>
 <td>-force-table-names</td>

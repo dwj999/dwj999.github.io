@@ -99,7 +99,7 @@
 <meta property="og:description" content="慢查询日志简介慢查询日志是MySQL提供的一种日志记录形式，由SQL语句组成。用来记录在MySQL中响应时间超过阈值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。慢查询日志可用于查找执行时间较长的查询，因此可作为优化的候选对象。long_query_time的默认值为10，指运行10s以上的语句。 12注意：MySQL数据库默认不启用慢查询，需要手动">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/mysql_slowlog02.jpg">
-<meta property="og:updated_time" content="2020-06-03T09:04:08.539Z">
+<meta property="og:updated_time" content="2020-06-03T09:08:55.963Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MySQL 慢查询日志介绍">
 <meta name="twitter:description" content="慢查询日志简介慢查询日志是MySQL提供的一种日志记录形式，由SQL语句组成。用来记录在MySQL中响应时间超过阈值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。慢查询日志可用于查找执行时间较长的查询，因此可作为优化的候选对象。long_query_time的默认值为10，指运行10s以上的语句。 12注意：MySQL数据库默认不启用慢查询，需要手动">
@@ -437,7 +437,7 @@
 <td>–min-examined-row-limit=#</td>
 <td>全局/会话</td>
 <td>Yes</td>
-<td>[0-18446744073709551615]</td>
+<td>[0-xxx]</td>
 <td>0</td>
 <td>扫描行数少于此值不会记录慢查询日志</td>
 </tr>

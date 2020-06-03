@@ -405,93 +405,71 @@
 <table>
 <thead>
 <tr>
-<th><div style="width:200px">系统变量及命令行格式</div></th>
-<th><div style="width:45px">作用域</div></th>
-<th><div style="width:30px">动态</div></th>
-<th><div style="width:95px">取值</div></th>
-<th><div style="width:130px">默认</div></th>
-<th><div style="width:200px">描述</div></th>
+<th><div style="width:250px">系统变量<br>及命令行格式</div></th>
+<th><div style="width:90px">作用域及动态设置</div></th>
+<th><div style="width:95px">取值及默认值</div></th>
+<th><div style="width:300px">描述</div></th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>slow_query_log<br>–slow-query-log[={OFF/ON}]</td>
-<td>全局</td>
-<td>YES</td>
-<td>OFF/ON</td>
-<td>OFF</td>
+<td>全局<br> YES</td>
+<td>OFF/ON<br>OFF</td>
 <td>是否启用慢查询日志</td>
 </tr>
 <tr>
 <td>long_query_time<br>–long-query-time=#</td>
-<td>全局/会话</td>
-<td>Yes</td>
-<td>[0-xxx]</td>
-<td>10</td>
+<td>全局/会话<br> Yes</td>
+<td>[0-xxx]<br>10</td>
 <td>慢查询时间阈值</td>
 </tr>
 <tr>
 <td>min_examined_row_limit<br>–min-examined-row-limit=#</td>
-<td>全局/会话</td>
-<td>Yes</td>
-<td>[0-xxx]</td>
-<td>0</td>
+<td>全局/会话<br> Yes</td>
+<td>[0-xxx]<br> 0</td>
 <td>扫描行数少于此值不会记录慢查询日志</td>
 </tr>
 <tr>
 <td>log_slow_admin_statements<br> –log-slow-admin-statements[={OFF/ON}]</td>
-<td>全局</td>
-<td>Yes</td>
-<td>OFF/ON</td>
-<td>OFF</td>
+<td>全局<br> Yes</td>
+<td>OFF/ON<br> OFF</td>
 <td>是否记录管理语句，包括 ALTER TABLE, ANALYZE TABLE, CHECK TABLE, CREATE INDEX, DROP INDEX, OPTIMIZE TABLE, and REPAIR TABLE.</td>
 </tr>
 <tr>
 <td>log_queries_not_using_indexes<br> –log-queries-not-using-indexes[={OFF/ON}]</td>
-<td>全局</td>
-<td>Yes</td>
-<td>OFF/ON</td>
-<td>0</td>
+<td>全局<br> Yes</td>
+<td>OFF/ON<br> 0</td>
 <td>未使用索引的语句是否记录到慢查询日志</td>
 </tr>
 <tr>
 <td>log_throttle_queries_not_using_indexes<br> –log-throttle-queries-not-using-indexes=#</td>
-<td>全局</td>
-<td>Yes</td>
-<td>[0-xxx]</td>
-<td>0</td>
+<td>全局<br> Yes</td>
+<td>[0-xxx]<br> 0</td>
 <td>当log_queries_not_using_indexes开启，此参数用来限制每分钟记录到慢查询日志的数量</td>
 </tr>
 <tr>
 <td>log_output<br> –log-output=name</td>
-<td>全局</td>
-<td>Yes</td>
-<td>TABLE/FILE/NONE</td>
-<td>FILE</td>
+<td>全局<br> Yes</td>
+<td>TABLE/FILE/NONE<br> FILE</td>
 <td>记录general_log和slow.log的日志存储方式</td>
 </tr>
 <tr>
 <td>slow_query_log_file<br> –slow-query-log-file=file_name</td>
-<td>全局</td>
-<td>Yes</td>
-<td>string</td>
-<td>hostname-slow.log</td>
+<td>全局<br> Yes</td>
+<td>string<br> hostname-slow.log</td>
 <td>慢查询日志文件的名称</td>
 </tr>
 <tr>
 <td> - <br> –log-short-format[={OFF/ON}]</td>
-<td>全局</td>
-<td>-</td>
-<td>OFF/ON</td>
-<td>OFF</td>
+<td>全局<br> -</td>
+<td>OFF/ON<br> OFF</td>
 <td>慢查询日志记录更少的信息</td>
 </tr>
 <tr>
 <td>log_slow_slave_statements<br> –log-slow-slave-statements[={OFF/ON}]</td>
-<td>全局</td>
-<td>YES</td>
-<td>OFF/ON</td>
-<td>OFF</td>
+<td>全局<br> YES</td>
+<td>OFF/ON<br> OFF</td>
 <td>作为从库时生效,从库复制中如何有慢sql也将被记录,当binlog格式为的ROW时不生效。并且设置此值不会立即生效，变量的状态应用于所有后续的START SLAVE语句。</td>
 </tr>
 </tbody>

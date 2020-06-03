@@ -99,7 +99,7 @@
 <meta property="og:description" content="慢查询日志简介慢查询日志是MySQL提供的一种日志记录形式，由SQL语句组成。用来记录在MySQL中响应时间超过阈值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。慢查询日志可用于查找执行时间较长的查询，因此可作为优化的候选对象。long_query_time的默认值为10，指运行10s以上的语句。 12注意：MySQL数据库默认不启用慢查询，需要手动">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/mysql_slowlog02.jpg">
-<meta property="og:updated_time" content="2020-06-03T09:11:24.183Z">
+<meta property="og:updated_time" content="2020-06-03T09:15:18.527Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MySQL 慢查询日志介绍">
 <meta name="twitter:description" content="慢查询日志简介慢查询日志是MySQL提供的一种日志记录形式，由SQL语句组成。用来记录在MySQL中响应时间超过阈值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。慢查询日志可用于查找执行时间较长的查询，因此可作为优化的候选对象。long_query_time的默认值为10，指运行10s以上的语句。 12注意：MySQL数据库默认不启用慢查询，需要手动">
@@ -404,8 +404,7 @@
 <table>
 <thead>
 <tr>
-<th><div style="width:100px">系统变量</div></th>
-<th><div style="width:150px">命令行格式</div></th>
+<th><div style="width:200px">系统变量及命令行格式</div></th>
 <th><div style="width:45px">作用域</div></th>
 <th><div style="width:30px">动态</div></th>
 <th><div style="width:95px">取值</div></th>
@@ -415,8 +414,7 @@
 </thead>
 <tbody>
 <tr>
-<td>slow_query_log</td>
-<td>–slow-query-log[={OFF/ON}]</td>
+<td>slow_query_log<br>–slow-query-log[={OFF/ON}]</td>
 <td>全局</td>
 <td>YES</td>
 <td>OFF/ON</td>
@@ -424,8 +422,7 @@
 <td>是否启用慢查询日志</td>
 </tr>
 <tr>
-<td>long_query_time</td>
-<td>–long-query-time=#</td>
+<td>long_query_time<br>–long-query-time=#</td>
 <td>全局/会话</td>
 <td>Yes</td>
 <td>[0-xxx]</td>
@@ -433,8 +430,7 @@
 <td>慢查询时间阈值</td>
 </tr>
 <tr>
-<td>min_examined_row_limit</td>
-<td>–min-examined-row-limit=#</td>
+<td>min_examined_row_limit<br>–min-examined-row-limit=#</td>
 <td>全局/会话</td>
 <td>Yes</td>
 <td>[0-xxx]</td>
@@ -442,8 +438,7 @@
 <td>扫描行数少于此值不会记录慢查询日志</td>
 </tr>
 <tr>
-<td>log_slow_admin_statements</td>
-<td>–log-slow-admin-statements[={OFF/ON}]</td>
+<td>log_slow_admin_statements<br> –log-slow-admin-statements[={OFF/ON}]</td>
 <td>全局</td>
 <td>Yes</td>
 <td>OFF/ON</td>
@@ -451,8 +446,7 @@
 <td>是否记录管理语句，包括 ALTER TABLE, ANALYZE TABLE, CHECK TABLE, CREATE INDEX, DROP INDEX, OPTIMIZE TABLE, and REPAIR TABLE.</td>
 </tr>
 <tr>
-<td>log_queries_not_using_indexes</td>
-<td>–log-queries-not-using-indexes[={OFF/ON}]</td>
+<td>log_queries_not_using_indexes<br> –log-queries-not-using-indexes[={OFF/ON}]</td>
 <td>全局</td>
 <td>Yes</td>
 <td>OFF/ON</td>
@@ -460,8 +454,7 @@
 <td>未使用索引的语句是否记录到慢查询日志</td>
 </tr>
 <tr>
-<td>log_throttle_queries_not_using_indexes</td>
-<td>–log-throttle-queries-not-using-indexes=#</td>
+<td>log_throttle_queries_not_using_indexes<br> –log-throttle-queries-not-using-indexes=#</td>
 <td>全局</td>
 <td>Yes</td>
 <td>[0-xxx]</td>
@@ -469,8 +462,7 @@
 <td>当log_queries_not_using_indexes开启，此参数用来限制每分钟记录到慢查询日志的数量</td>
 </tr>
 <tr>
-<td>log_output</td>
-<td>–log-output=name</td>
+<td>log_output<br> –log-output=name</td>
 <td>全局</td>
 <td>Yes</td>
 <td>TABLE/FILE/NONE</td>
@@ -478,8 +470,7 @@
 <td>记录general_log和slow.log的日志存储方式</td>
 </tr>
 <tr>
-<td>slow_query_log_file</td>
-<td>–slow-query-log-file=file_name</td>
+<td>slow_query_log_file<br> –slow-query-log-file=file_name</td>
 <td>全局</td>
 <td>Yes</td>
 <td>string</td>
@@ -487,8 +478,7 @@
 <td>慢查询日志文件的名称</td>
 </tr>
 <tr>
-<td> -</td>
-<td>–log-short-format[={OFF/ON}]</td>
+<td> - <br> –log-short-format[={OFF/ON}]</td>
 <td>全局</td>
 <td>-</td>
 <td>OFF/ON</td>
@@ -496,8 +486,7 @@
 <td>慢查询日志记录更少的信息</td>
 </tr>
 <tr>
-<td>log_slow_slave_statements</td>
-<td>–log-slow-slave-statements[={OFF/ON}]</td>
+<td>log_slow_slave_statements<br> –log-slow-slave-statements[={OFF/ON}]</td>
 <td>全局</td>
 <td>YES</td>
 <td>OFF/ON</td>
@@ -552,7 +541,7 @@
 </ul>
 <p>总结：<br><br>查询语句(不走索引)的SQL，扫描行数大于min_examined_row_limit的前提下，执行时长如果大于long_query_time则会记录，小于则不会记录；<br><br>扫描行数小于min_examined_row_limit的前提下，执行时长的参数设置就不生效；</p>
 <h3 id="其他参数"><a href="#其他参数" class="headerlink" title="其他参数"></a>其他参数</h3><p>其他参数暂时未做测试</p>
-<h3 id="生产建议"><a href="#生产建议" class="headerlink" title="生产建议"></a>生产建议</h3><figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">+----------------------------------------+----------------+</span><br><span class="line">|<span class="string"> VARIABLE_NAME                          </span>|<span class="string"> VARIABLE_VALUE </span>|</span><br><span class="line">+----------------------------------------+----------------+</span><br><span class="line">|<span class="string"> log_output                             </span>|<span class="string"> FILE           </span></span><br><span class="line"><span class="string">g_queries_not_using_indexes          </span>|<span class="string"> OFF            </span>|</span><br><span class="line">|<span class="string"> log_slow_admin_statements              </span>|<span class="string"> ON             </span>|</span><br><span class="line">|<span class="string"> log_slow_slave_statements              </span>|<span class="string"> ON             </span>|</span><br><span class="line">|<span class="string"> log_throttle_queries_not_using_indexes </span>|<span class="string"> 10             </span>|</span><br><span class="line">|<span class="string"> long_query_time                        </span>|<span class="string"> 0.500000       </span>|</span><br><span class="line">|<span class="string"> min_examined_row_limit                 </span>|<span class="string"> 0              </span>|</span><br><span class="line">|<span class="string"> slow_query_log                         </span>|<span class="string"> ON             </span>|</span><br><span class="line">|<span class="string"> slow_query_log_file                    </span>|<span class="string"> slow.log       </span>|</span><br><span class="line">+----------------------------------------+----------------+</span><br><span class="line">9 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<h3 id="生产建议"><a href="#生产建议" class="headerlink" title="生产建议"></a>生产建议</h3><figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">+----------------------------------------+----------------+</span><br><span class="line">|<span class="string"> VARIABLE_NAME                          </span>|<span class="string"> VARIABLE_VALUE </span>|</span><br><span class="line">+----------------------------------------+----------------+</span><br><span class="line">|<span class="string"> log_output                             </span>|<span class="string"> FILE           </span>|</span><br><span class="line">|<span class="string"> log_queries_not_using_indexes          </span>|<span class="string"> OFF            </span>|</span><br><span class="line">|<span class="string"> log_slow_admin_statements              </span>|<span class="string"> ON             </span>|</span><br><span class="line">|<span class="string"> log_slow_slave_statements              </span>|<span class="string"> ON             </span>|</span><br><span class="line">|<span class="string"> log_throttle_queries_not_using_indexes </span>|<span class="string"> 10             </span>|</span><br><span class="line">|<span class="string"> long_query_time                        </span>|<span class="string"> 0.500000       </span>|</span><br><span class="line">|<span class="string"> min_examined_row_limit                 </span>|<span class="string"> 0              </span>|</span><br><span class="line">|<span class="string"> slow_query_log                         </span>|<span class="string"> ON             </span>|</span><br><span class="line">|<span class="string"> slow_query_log_file                    </span>|<span class="string"> slow.log       </span>|</span><br><span class="line">+----------------------------------------+----------------+</span><br><span class="line">9 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
 <p>将log_queries_not_using_indexes设置为OFF的原因是，生产环境可能会有多套监控，当库中表或者其他对象过多时，监控的统计语句或者检索语句因大多从information_schema元数据库取数据，没有走索引，slow log可以会占比较多，会淹没正常的告警。生产的慢SQL完全依赖min_examined_row_limit和long_query_time及log_slow_admin_statements来控制，一类是DDL，别一类正常的DML。</p>
 <h2 id="慢查询日志分析工具"><a href="#慢查询日志分析工具" class="headerlink" title="慢查询日志分析工具"></a>慢查询日志分析工具</h2><p>1.官方自带工具： mysqldumpslow<br><br>2.percona-toolkit工具包中的pt-query-digest<br></p>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MySQL日常运维工作中，慢查询日志的优化工作能占到日常工作的30%以上，因此对慢查询产生的时机，相关参数，输出内容要有清楚的认识，才能更好的去运维MySQL，最大化的优化慢查询语句，提高数据库服务的稳定性。</p>

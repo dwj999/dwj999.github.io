@@ -98,24 +98,24 @@
 <meta property="og:site_name" content="Jiessie&#39;s&#39; Blog">
 <meta property="og:description" content="介绍pt-kill 是一个优秀的kill MySQL连接的工具,是percona toolkit的一部分,使用perl语言编写.简单高效.能够按照一定的规则匹配kill掉MySQL中的连接,达到有效保护服务的目的. 用途pt-kill主要适用于MySQL实例中异常出现的会话导致整个实例负载过高,甚至出现不可用的情况下,进而影响应用,影响业务的场景.包括以下:  手动维护MySQL连接,比如连接突然">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill1.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill2.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill3.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill4.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill5.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill6.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill7.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill8.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill9.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill10.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill11.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill12.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill13.png">
-<meta property="og:updated_time" content="2020-05-26T00:38:44.252Z">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill1.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill2.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill3.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill4.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill5.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill6.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill7.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill8.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill9.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill10.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill11.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill12.png">
+<meta property="og:image" content="https://dwj999.github.io/images/pt_kill13.png">
+<meta property="og:updated_time" content="2020-07-08T09:55:45.335Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="pt-kill 使用教程">
 <meta name="twitter:description" content="介绍pt-kill 是一个优秀的kill MySQL连接的工具,是percona toolkit的一部分,使用perl语言编写.简单高效.能够按照一定的规则匹配kill掉MySQL中的连接,达到有效保护服务的目的. 用途pt-kill主要适用于MySQL实例中异常出现的会话导致整个实例负载过高,甚至出现不可用的情况下,进而影响应用,影响业务的场景.包括以下:  手动维护MySQL连接,比如连接突然">
-<meta name="twitter:image" content="http://qanp7f2om.bkt.clouddn.com/pt_kill1.png">
+<meta name="twitter:image" content="https://dwj999.github.io/images/pt_kill1.png">
 
 
 
@@ -778,29 +778,29 @@
 <h2 id="案例"><a href="#案例" class="headerlink" title="案例"></a>案例</h2><p>通过测试用例来展示pt-kill的规则及其优秀的工作能力,构造一个测试环境,使用sysbench来做mysql的压力测试,在测试过程中通过pt-kill来匹配规则并kill</p>
 <h3 id="测试匹配"><a href="#测试匹配" class="headerlink" title="测试匹配"></a>测试匹配</h3><p>1.查看当前进程列表添加到proclist.txt文件<br><figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="symbol">mysql</span> -S /<span class="meta">opt</span>/mysql3306/<span class="meta">data</span>/mysql3306.sock -e <span class="string">"SHOW PROCESSLIST"</span> &gt; proclist.txt</span><br></pre></td></tr></table></figure></p>
 <p>2.查看proclist.txt文件内容</p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill1.png" alt="image"></p>
+<p><img src="../images/pt_kill1.png" alt="image"></p>
 <p>3.通过pt-kill匹配测试查询<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--test-matching</span> proclist.txt <span class="params">--match-command=</span><span class="string">"Query"</span>   <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--match-state=</span><span class="string">"Sending data"</span> <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill2.png" alt="image"></p>
+<p><img src="../images/pt_kill2.png" alt="image"></p>
 <p>可以看出测试匹配出了3个command为Query,state为Sending data的sql语句,并且kill的id与show processlist中的id对应</p>
 <h3 id="Host匹配查询"><a href="#Host匹配查询" class="headerlink" title="Host匹配查询"></a>Host匹配查询</h3><p>1.通过pt-kill连接host匹配并打印出来<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-host=</span><span class="string">"127.0.0.1"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill3.png" alt="image"></p>
+<p><img src="../images/pt_kill3.png" alt="image"></p>
 <p>仅匹配了host为127.0.0.1,并且未指定其他匹配,从输出上看command为Query,Sleep都打印了出来</p>
 <h3 id="DB匹配查询"><a href="#DB匹配查询" class="headerlink" title="DB匹配查询"></a>DB匹配查询</h3><p>1.通过pt-kill连接db匹配并打印出来<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-db=</span><span class="string">"sysbench"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill4.png" alt="image"></p>
+<p><img src="../images/pt_kill4.png" alt="image"></p>
 <p>仅匹配了db为sysbench,并且未指定其他匹配,从输出上看command为Query,Sleep都打印了出来</p>
 <h3 id="USER匹配查询"><a href="#USER匹配查询" class="headerlink" title="USER匹配查询"></a>USER匹配查询</h3><p>1.通过pt-kill连接user匹配并打印出来<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-user=</span><span class="string">"root"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill5.png" alt="image"></p>
+<p><img src="../images/pt_kill5.png" alt="image"></p>
 <p>仅匹配了user为root,并且未指定其他匹配,从输出上看command为Query,Sleep都打印了出来</p>
 <h3 id="Command匹配查询"><a href="#Command匹配查询" class="headerlink" title="Command匹配查询"></a>Command匹配查询</h3><p>1.通过pt-kill连接command匹配并打印出来,分别打印c<br>mmand只包括Sleep和包括Sleep及Query的示例<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-command=</span><span class="string">"Sleep"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-command=</span><span class="string">"Sleep|Query"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill6.png" alt="image"></p>
+<p><img src="../images/pt_kill6.png" alt="image"></p>
 <p>当command匹配为Sleep时,只打印了command为Sleep的匹配查询<br><br>当command匹配为Sleep和Query时,打印了command为Sleep和Query的匹配查询<br></p>
 <font color="FF000">多个条件匹配时,用|分割</font>
 
 <h3 id="State匹配查询"><a href="#State匹配查询" class="headerlink" title="State匹配查询"></a>State匹配查询</h3><p>1.通过pt-kill连接state匹配并打印出来,分别打印state只包括starting和包括starting及Creating sort index和包括Creating sort index及Sending data的示例<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-state=</span><span class="string">"starting"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-state=</span><span class="string">"starting|Creating sort index"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-state=</span><span class="string">"Creating sort index|Sending data"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill7.png" alt="image"></p>
+<p><img src="../images/pt_kill7.png" alt="image"></p>
 <p>当state匹配为starting时,只打印了state为starting的匹配查询<br><br>当state匹配为starting和Creating sort index时,打印了state为starting和Creating sort index的匹配查询<br><br>当state匹配为Creating sort index和Sending data时,打印了state为Creating sort index和Sending data的匹配查询</p>
 <h3 id="Info匹配查询"><a href="#Info匹配查询" class="headerlink" title="Info匹配查询"></a>Info匹配查询</h3><p>1.通过pt-kill连接info匹配并打印出来,分别打印info只包括COMMIT和只包括SELECT和包括COMMIT及SELECT的示例<br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-info=</span><span class="string">"COMMIT"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-info=</span><span class="string">"SELECT|COMMIT"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-info=</span><span class="string">"SELECT"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill8.png" alt="image"></p>
+<p><img src="../images/pt_kill8.png" alt="image"></p>
 <p>当info匹配为COMMIT时,只打印了info为starting的匹配查询<br><br>当info匹配为SELECT时,只打印了info为SELECT的匹配查询<br><br>当info匹配为COMMIT和SELECT时,打印了info为SELECT和COMMIT的匹配查询</p>
 <h3 id="组合匹配查询"><a href="#组合匹配查询" class="headerlink" title="组合匹配查询"></a>组合匹配查询</h3><p>1.通过pt-kill连接匹配规则如下</p>
 <ul>
@@ -812,7 +812,7 @@
 <li>匹配info为SELECT<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-host=</span><span class="string">"127.0.0.1"</span> <span class="params">--match-user=</span><span class="string">"root"</span> <span class="params">--match-db=</span><span class="string">"sysbench"</span> <span class="params">--match-command=</span><span class="string">"Query"</span> <span class="params">--match-state=</span><span class="string">"Opening tables"</span> <span class="params">--match-info=</span><span class="string">"SELECT"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure>
 </li>
 </ul>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill9.png" alt="image"></p>
+<p><img src="../images/pt_kill9.png" alt="image"></p>
 <p>只有匹配上面所有的条件,才会打印出来匹配的SQL详情</p>
 <h3 id="Ignore忽略匹配"><a href="#Ignore忽略匹配" class="headerlink" title="Ignore忽略匹配"></a>Ignore忽略匹配</h3><p>1.通过pt-kill连接匹配规则如下</p>
 <ul>
@@ -820,7 +820,7 @@
 <li>忽略匹配info为SELECT<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-host=</span><span class="string">"127.0.0.1"</span> <span class="params">--ignore-info=</span><span class="string">"SELECT"</span> <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--print</span></span><br></pre></td></tr></table></figure>
 </li>
 </ul>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill10.png" alt="image"></p>
+<p><img src="../images/pt_kill10.png" alt="image"></p>
 <p>当指定ignore时,ignore具有最高的优先级,再去匹配其他规则</p>
 <h3 id="DSN匹配查询"><a href="#DSN匹配查询" class="headerlink" title="DSN匹配查询"></a>DSN匹配查询</h3><p>1.通过pt-kill连接匹配,结合ignore并打印出来,同时记录到DNS表中,规则如下</p>
 <ul>
@@ -833,12 +833,12 @@
 <li>忽略匹配info为update<figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt-kill <span class="params">--no-version-check</span> <span class="params">--log-dsn</span> D=test,t=kill_log <span class="params">--create-log-table</span> <span class="params">--host</span> 127.0.0.1 <span class="params">--port</span> 3306 <span class="params">--user</span> root <span class="params">--password</span> 111111 <span class="params">--socket</span> <span class="string">/opt/mysql3306/data/mysql3306.sock</span> <span class="params">--match-host=</span><span class="string">"127.0.0.1"</span> <span class="params">--match-user=</span><span class="string">"root"</span> <span class="params">--match-db=</span><span class="string">"sysbench"</span> <span class="params">--match-command=</span><span class="string">"Query"</span> <span class="params">--match-state=</span><span class="string">"Sending data"</span> <span class="params">--match-info=</span><span class="string">"SELECT"</span> <span class="params">--ignore-info=</span>”update” <span class="params">--victim</span> all <span class="params">--interval</span> 1 <span class="params">--kill-query</span></span><br></pre></td></tr></table></figure>
 </li>
 </ul>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill11.png" alt="image"></p>
+<p><img src="../images/pt_kill11.png" alt="image"></p>
 <p>2.结果分析<br><br>只有匹配上面所有的条件,才会将kill的SQL详情保存在test库下的kill_log表中,DSN模式下使用print不会记录到表kill_log中</p>
 <p>3.Kill_log表结构</p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill12.png" alt="image"></p>
+<p><img src="../images/pt_kill12.png" alt="image"></p>
 <p>4.kill_log表记录</p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/pt_kill13.png" alt="image"></p>
+<p><img src="../images/pt_kill13.png" alt="image"></p>
 <h2 id="建议"><a href="#建议" class="headerlink" title="建议"></a>建议</h2><h3 id="方法推荐"><a href="#方法推荐" class="headerlink" title="方法推荐"></a>方法推荐</h3><ul>
 <li>推荐使用组合匹配加上ignore模式精确匹配,减小误操作的几率</li>
 <li>先测试再执行,推荐用print方法,也可使用–test-matching方法</li>

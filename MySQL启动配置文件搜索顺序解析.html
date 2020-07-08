@@ -98,29 +98,29 @@
 <meta property="og:site_name" content="Jiessie&#39;s&#39; Blog">
 <meta property="og:description" content="引言MySQL数据库支持从配置文件中读取启动选项，不用每次启动时在命令行输入，方便管理。很多选项都是以纯文本的形式存在，可以用任何的编辑器打开编辑。.mylogin.cnf文件除外，此文件包含了登录路径的选项，使用mysql_config_editor程序去创建的加密文件。 搜索顺序MySQL默认情况下是按照一定的顺序去搜索具体路径的配置文件，并且在windows和linux的操作顺序不一样。搜索">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_1.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_2.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_3.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_4.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_5.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_6.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_7.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_8.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_9.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_10.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_11.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_12.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_13.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_14.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_15.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_16.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_17.png">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_18.png">
-<meta property="og:updated_time" content="2020-05-21T02:06:37.164Z">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_1.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_2.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_3.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_4.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_5.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_6.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_7.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_8.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_9.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_10.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_11.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_12.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_13.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_14.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_15.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_16.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_17.png">
+<meta property="og:image" content="https://dwj999.github.io/images/MySQL_mycnf_18.png">
+<meta property="og:updated_time" content="2020-07-08T09:55:37.828Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MySQL启动配置文件搜索顺序解析">
 <meta name="twitter:description" content="引言MySQL数据库支持从配置文件中读取启动选项，不用每次启动时在命令行输入，方便管理。很多选项都是以纯文本的形式存在，可以用任何的编辑器打开编辑。.mylogin.cnf文件除外，此文件包含了登录路径的选项，使用mysql_config_editor程序去创建的加密文件。 搜索顺序MySQL默认情况下是按照一定的顺序去搜索具体路径的配置文件，并且在windows和linux的操作顺序不一样。搜索">
-<meta name="twitter:image" content="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_1.png">
+<meta name="twitter:image" content="https://dwj999.github.io/images/MySQL_mycnf_1.png">
 
 
 
@@ -497,30 +497,30 @@
 <li>/usr/local/mysql/my.cnf</li>
 <li>~/.my.cnf<br>也就是说MySQL会找/etc/my.cnf这个文件，如果此文件不存在，继续找/etc/mysql/my.cnf这个文件，依此类推，最后是读取–defaults-file加载的文件，如果最后的文件也不存在，通过mysqld的帮助可以看出来:</li>
 </ul>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_1.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_1.png" alt="image"></p>
 <h4 id="etc-my-cnf"><a href="#etc-my-cnf" class="headerlink" title="/etc/my.cnf"></a>/etc/my.cnf</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf中只存在/etc/my.cnf时，很明显MySQL是加载的<font color="FF0000"><b>/etc/my.cnf</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_2.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_2.png" alt="image"></p>
 <h4 id="etc-my-cnf-amp-amp-etc-mysql-my-cnf"><a href="#etc-my-cnf-amp-amp-etc-mysql-my-cnf" class="headerlink" title="/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf"></a>/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf中只存在/etc/my.cnf和/etc/mysql/my.cnf时，很明显MySQL是加载的<font color="FF0000"><b>/etc/mysql/my.cnf</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_3.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_3.png" alt="image"></p>
 <h4 id="etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf"><a href="#etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf" class="headerlink" title="/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf &amp;&amp; /usr/local/mysql/my.cnf"></a>/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf &amp;&amp; /usr/local/mysql/my.cnf</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf中存在/etc/my.cnf和/etc/mysql/my.cnf和/usr/local/mysql/my.cnf时，很明显MySQL是加载的<font color="FF0000"><b>/usr/local/mysql/my.cnf</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_4.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_4.png" alt="image"></p>
 <h4 id="etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf-amp-amp-my-cnf"><a href="#etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf-amp-amp-my-cnf" class="headerlink" title="/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf &amp;&amp; /usr/local/mysql/my.cnf &amp;&amp; ~/.my.cnf"></a>/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf &amp;&amp; /usr/local/mysql/my.cnf &amp;&amp; ~/.my.cnf</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，很明显MySQL是加载的<font color="FF0000"><b>~/my.cnf</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_5.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_5.png" alt="image"></p>
 <h4 id="defaults-file"><a href="#defaults-file" class="headerlink" title="defaults-file"></a>defaults-file</h4><p>当指定<font color="FF0000"><b>–defaults-file为/tmp/my.cnf</b></font>时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，很明显MySQL是加载的<font color="FF0000"><b>/tmp/my.cnf</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_6.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_6.png" alt="image"></p>
 <h3 id="多实例"><a href="#多实例" class="headerlink" title="多实例"></a>多实例</h3><p>多实例的启动通常使用mysqld_multi脚本，此脚本也支持–defaults-file选项。从mysqld_multi的官档上可以看出，mysqld_multi支持[mysqldN]的标签，其中N代表常量数字，此脚本是调用mysqld_safe命令是启动服务，所以支持<font color="FF0000"><b>[mysqld]标签做通用性配置文件</b></font>，适用于多个实例启动时的通用配置，也可以使用<font color="FF0000"><b>[mysqldN]，N代表特定端口做特殊性实例配置。</b></font></p>
 <h4 id="etc-my-cnf-amp-amp-mysqldN"><a href="#etc-my-cnf-amp-amp-mysqldN" class="headerlink" title="/etc/my.cnf &amp;&amp; [mysqldN]"></a>/etc/my.cnf &amp;&amp; [mysqldN]</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，同时在<font color="FF0000"><b>[mysqld]中全部配置</b></font>innodb_lock_wait_timeout，又在/etc/my.cnf加了一个<font color="FF0000"><b>[mysqld3306]</b></font>标签，这时候，<font color="FF0000"><b>MySQL是加载的是/etc/my.cnf的[mysqld3306]标签配置文件</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_7.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_7.png" alt="image"></p>
 <h4 id="etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-mysqldN"><a href="#etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-mysqldN" class="headerlink" title="/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf &amp;&amp; [mysqldN]"></a>/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf &amp;&amp; [mysqldN]</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，同时在<font color="FF0000"><b>[mysqld]中全部配置</b></font>innodb_lock_wait_timeout，又在/etc/my.cnf和/etc/mysql/my.cnf加了一个<font color="FF0000"><b>[mysqld3306]</b></font>标签，这时候，<font color="FF0000"><b>MySQL是加载的是/etc/mysql/my.cnf的[mysqld3306]标签配置文件</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_8.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_8.png" alt="image"></p>
 <h4 id="etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf-amp-amp-mysqldN"><a href="#etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf-amp-amp-mysqldN" class="headerlink" title="/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf  &amp;&amp;/usr/local/mysql/my.cnf &amp;&amp; [mysqldN]"></a>/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf  &amp;&amp;/usr/local/mysql/my.cnf &amp;&amp; [mysqldN]</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，同时在<font color="FF0000"><b>[mysqld]中全部配置</b></font>innodb_lock_wait_timeout，又在/etc/my.cnf和/etc/mysql/my.cnf和/usr/local/mysql/my.cnf加了一个<font color="FF0000"><b>[mysqld3306]</b></font>标签，这时候，<font color="FF0000"><b>MySQL是加载的还是/etc/my.cnf的[mysqld3306]标签配置文件</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_9.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_9.png" alt="image"></p>
 <h4 id="etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf-amp-amp-mycf-amp-amp-mysqldN"><a href="#etc-my-cnf-amp-amp-etc-mysql-my-cnf-amp-amp-usr-local-mysql-my-cnf-amp-amp-mycf-amp-amp-mysqldN" class="headerlink" title="/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf  &amp;&amp;/usr/local/mysql/my.cnf  &amp;&amp; ~/.mycf &amp;&amp; [mysqldN]"></a>/etc/my.cnf &amp;&amp; /etc/mysql/my.cnf  &amp;&amp;/usr/local/mysql/my.cnf  &amp;&amp; ~/.mycf &amp;&amp; [mysqldN]</h4><p>当没有指定–defaults-file时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，同时在<font color="FF0000"><b>[mysqld]中全部配置</b></font>innodb_lock_wait_timeout，又在全部配置了<font color="FF0000"><b>[mysqld3306]</b></font>标签，这时候，<font color="FF0000"><b>MySQL是加载的是~/my.cnf的[mysqld3306]标签配置文件</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_10.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_10.png" alt="image"></p>
 <h4 id="defaults-file-amp-amp-mysqldN"><a href="#defaults-file-amp-amp-mysqldN" class="headerlink" title="defaults-file &amp;&amp; [mysqldN]"></a>defaults-file &amp;&amp; [mysqldN]</h4><p>当<font color="FF0000"><b>指定–defaults-file为/tmp/my.cnf</b></font>时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，同时在了<font color="FF0000"><b>[mysqld]中全部配置</b></font>innodb_lock_wait_timeout，又在全部配置了了<font color="FF0000"><b>[mysqld3306]</b></font>标签，这时候，了<font color="FF0000"><b>MySQL是加载的是/tmp/my.cnf的[mysqld3306]标签配置文件</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_11.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_11.png" alt="image"></p>
 <h4 id="defaults-file-1"><a href="#defaults-file-1" class="headerlink" title="defaults-file"></a>defaults-file</h4><p>当<font color="FF0000"><b>指定–defaults-file为/tmp/my.cnf</b></font>时，而且/etc/my.cnf，/etc/mysql/my.cnf，/usr/local/mysql/my.cnf，~/.my.cnf全部存在时，同时在<font color="FF0000"><b>[mysqld]中全部配置</b></font>innodb_lock_wait_timeout，全部<font color="FF0000"><b>未配置</b></font>了[mysqld3306]标签，这时候，<font color="FF0000"><b>MySQL是加载的是~/my.cnf的配置文件而不是加载的/tmp/my.cnf的配置文件，说明mysqld_multi不加载除默认搜索的配置文件外的其他[mysqld]标签</b></font></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_12.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_12.png" alt="image"></p>
 <h2 id="启动方式"><a href="#启动方式" class="headerlink" title="启动方式"></a>启动方式</h2><p>MySQL的启动包括多种，包括以下几种：</p>
 <ul>
 <li>/usr/local/mysql/bin/mysqld –defaults-file=/etc/my.cnf –basedir=/usr/local/mysql –datadir=/opt/mysql/data –user=mysql</li>
@@ -528,15 +528,15 @@
 <li>/etc/init.d/mysqld start &amp;&amp; service mysqld start</li>
 <li>mysqld_multi start<h3 id="service-mysqld-start"><a href="#service-mysqld-start" class="headerlink" title="service mysqld start"></a>service mysqld start</h3>service mysqld start的启动有一个要注意的地方，它不会加载~/.my.cnf，实验如下，很明显，部<font color="FF0000"><b>service mysqld start启动方式不加载~/.my.cnf的参数</b></font></li>
 </ul>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_13.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_13.png" alt="image"></p>
 <h4 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h4><figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">由于linux的service启动服务的方式是调用的<span class="regexp">/sbin/</span>service脚本来进行管理的，并且<span class="regexp">/sbin/</span>service脚本是shell编写的，可以通过debug的模式来查看具体执行过程</span><br></pre></td></tr></table></figure>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_14.png" alt="image"><br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">通过上面的执行过程可以了解到，service mysqld start启动mysql的方式，实际最终调用的命令为：</span><br><span class="line">env -i PATH=<span class="string">/sbin</span>:<span class="string">/usr/sbin</span>:<span class="string">/bin</span>:<span class="string">/usr/bin</span> TERM=linux SYSTEMCTL_IGNORE_DEPENDENCIES= SYSTEMCTL_SKIP_REDIRECT= <span class="string">/etc/init.d/mysqld</span> start</span><br><span class="line">此命令没有包含<span class="string">/home/mysql</span>的环境变量，如果修改为以下命令，则可以加载~<span class="string">/.my.cnf</span></span><br><span class="line">命令为：</span><br><span class="line">env -i PATH=<span class="string">/sbin</span>:<span class="string">/usr/sbin</span>:<span class="string">/bin</span>:<span class="string">/usr/bin</span> HOME=<span class="string">/home/mysql</span> TERM=linux SYSTEMCTL_IGNORE_DEPENDENCIES= SYSTEMCTL_SKIP_REDIRECT= <span class="string">/etc/init.d/mysqld</span> start</span><br></pre></td></tr></table></figure></p>
+<p><img src="../images/MySQL_mycnf_14.png" alt="image"><br><figure class="highlight jboss-cli"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">通过上面的执行过程可以了解到，service mysqld start启动mysql的方式，实际最终调用的命令为：</span><br><span class="line">env -i PATH=<span class="string">/sbin</span>:<span class="string">/usr/sbin</span>:<span class="string">/bin</span>:<span class="string">/usr/bin</span> TERM=linux SYSTEMCTL_IGNORE_DEPENDENCIES= SYSTEMCTL_SKIP_REDIRECT= <span class="string">/etc/init.d/mysqld</span> start</span><br><span class="line">此命令没有包含<span class="string">/home/mysql</span>的环境变量，如果修改为以下命令，则可以加载~<span class="string">/.my.cnf</span></span><br><span class="line">命令为：</span><br><span class="line">env -i PATH=<span class="string">/sbin</span>:<span class="string">/usr/sbin</span>:<span class="string">/bin</span>:<span class="string">/usr/bin</span> HOME=<span class="string">/home/mysql</span> TERM=linux SYSTEMCTL_IGNORE_DEPENDENCIES= SYSTEMCTL_SKIP_REDIRECT= <span class="string">/etc/init.d/mysqld</span> start</span><br></pre></td></tr></table></figure></p>
 <h4 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h4><p>从脚本/sbin/service的最下面部分可以看出，具体的启动命令，如果想修改为让service mysqld start的启动方式也能搜索~/.my.cnf的参数，可以修改具体的脚本，添加了一个if else判断条件，如下：<br><figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">将脚本/sbin/service的第81行的原始命令：</span><br><span class="line">env -i <span class="attribute">PATH</span>=<span class="string">"<span class="variable">$PATH</span>"</span> <span class="attribute">TERM</span>=<span class="string">"<span class="variable">$TERM</span>"</span> <span class="attribute">SYSTEMCTL_IGNORE_DEPENDENCIES</span>=<span class="variable">$&#123;SYSTEMCTL_IGNORE_DEPENDENCIES&#125;</span> <span class="attribute">SYSTEMCTL_SKIP_REDIRECT</span>=<span class="variable">$&#123;SYSTEMCTL_SKIP_REDIRECT&#125;</span> <span class="string">"<span class="variable">$&#123;SERVICEDIR&#125;</span>/<span class="variable">$&#123;SERVICE&#125;</span>"</span> <span class="variable">$&#123;ACTION&#125;</span> <span class="variable">$&#123;OPTIONS&#125;</span></span><br><span class="line">修改为</span><br><span class="line"><span class="keyword">if</span> [ <span class="string">"<span class="variable">$&#123;SERVICE&#125;</span>"</span> = <span class="string">"mysqld"</span> ]; then</span><br><span class="line">      env -i <span class="attribute">PATH</span>=<span class="string">"<span class="variable">$PATH</span>"</span> <span class="attribute">HOME</span>=/home/mysql <span class="attribute">TERM</span>=<span class="string">"<span class="variable">$TERM</span>"</span> <span class="attribute">SYSTEMCTL_IGNORE_DEPENDENCIES</span>=<span class="variable">$&#123;SYSTEMCTL_IGNORE_DEPENDENCIES&#125;</span> <span class="attribute">SYSTEMCTL_SKIP_REDIRECT</span>=$&#123;SYSTEMCTL_SKIP_REDIREC</span><br><span class="line">T&#125; <span class="string">"<span class="variable">$&#123;SERVICEDIR&#125;</span>/<span class="variable">$&#123;SERVICE&#125;</span>"</span> <span class="variable">$&#123;ACTION&#125;</span> <span class="variable">$&#123;OPTIONS&#125;</span></span><br><span class="line">   <span class="keyword">else</span></span><br><span class="line">      env -i <span class="attribute">PATH</span>=<span class="string">"<span class="variable">$PATH</span>"</span> <span class="attribute">TERM</span>=<span class="string">"<span class="variable">$TERM</span>"</span> <span class="attribute">SYSTEMCTL_IGNORE_DEPENDENCIES</span>=<span class="variable">$&#123;SYSTEMCTL_IGNORE_DEPENDENCIES&#125;</span> <span class="attribute">SYSTEMCTL_SKIP_REDIRECT</span>=<span class="variable">$&#123;SYSTEMCTL_SKIP_REDIRECT&#125;</span> <span class="string">"<span class="variable">$&#123;SERVICEDIR&#125;</span>/<span class="variable">$&#123;SERVICE&#125;</span>"</span> <span class="variable">$&#123;ACTION&#125;</span> <span class="variable">$&#123;OPTIONS&#125;</span></span><br><span class="line">   fi</span><br></pre></td></tr></table></figure></p>
 <p>如下：</p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_15.png" alt="image"></p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_16.png" alt="image"><br><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_17.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_15.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_16.png" alt="image"><br><img src="../images/MySQL_mycnf_17.png" alt="image"></p>
 <p>修改后的脚本启动一下测试，查看已经满足需求</p>
-<p><img src="http://qanp7f2om.bkt.clouddn.com/MySQL_mycnf_18.png" alt="image"></p>
+<p><img src="../images/MySQL_mycnf_18.png" alt="image"></p>
 <h3 id="mysqld-multi-start"><a href="#mysqld-multi-start" class="headerlink" title="mysqld_multi start"></a>mysqld_multi start</h3><p>当mysqld_multi方式指定–defaults-file的参数文件时，不加载除默认搜索顺序以外的[mysqld]标签，也可以做下debug，mysqld_multi是perl脚本，可能通过perl -d script的方式进行调试，这里不再展示。</p>
 <h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>通过以上的的测试，得出以下结论<br><figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1.</span>	默认情况前三种启动方式下，[mysqld]标签以按照<span class="regexp">/etc/</span>my.cnf，<span class="regexp">/etc/</span>mysql<span class="regexp">/my.cnf，/</span>usr<span class="regexp">/local/</span>mysql<span class="regexp">/my.cnf，~/</span>.my.cnf，--defaults-file搜索顺序加载</span><br><span class="line"><span class="number">2.</span>	mysqld_mutli启动方式，[mysqldN]标签也是按照<span class="regexp">/etc/</span>my.cnf，<span class="regexp">/etc/</span>mysql<span class="regexp">/my.cnf，/</span>usr<span class="regexp">/local/</span>mysql<span class="regexp">/my.cnf，~/</span>.my.cnf，--defaults-file搜索顺序加载。但是，[mysqld]标签只按照<span class="regexp">/etc/</span>my.cnf，<span class="regexp">/etc/</span>mysql<span class="regexp">/my.cnf，/</span>usr<span class="regexp">/local/</span>mysql<span class="regexp">/my.cnf，~/</span>.my.cnf搜索顺序加载，不加载--defaults-file的配置</span><br><span class="line"><span class="number">3.</span>	service mysqld start启动方式，默认不加载~/.my.cnf文件，需要修改脚本才能让其支持搜索</span><br><span class="line"><span class="number">4.</span>	当找不到<span class="regexp">/etc/</span>my.cnf，<span class="regexp">/etc/</span>mysql<span class="regexp">/my.cnf，/</span>usr<span class="regexp">/local/</span>mysql<span class="regexp">/my.cnf，~/</span>.my.cnf，--defaults-file的配置时，默认编译的mysql，参数是全部其默认值，数据目录保存在BASEDIR下的data目录。比如，BASEDIR为<span class="regexp">/usr/</span>local<span class="regexp">/mysql，则DATADIR为/</span>usr<span class="regexp">/local/</span>mysql/data，上面没有实验这一项</span><br></pre></td></tr></table></figure></p>
 

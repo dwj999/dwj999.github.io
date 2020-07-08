@@ -82,6 +82,8 @@
 
 
 
+  
+
 
   <link rel="alternate" href="/atom.xml" title="Jiessie's' Blog" type="application/atom+xml" />
 
@@ -98,12 +100,12 @@
 <meta property="og:site_name" content="Jiessie&#39;s&#39; Blog">
 <meta property="og:description" content="慢查询日志简介慢查询日志是MySQL提供的一种日志记录形式，由SQL语句组成。用来记录在MySQL中响应时间超过阈值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。慢查询日志可用于查找执行时间较长的查询，因此可作为优化的候选对象。long_query_time的默认值为10，指运行10s以上的语句。 12注意：MySQL数据库默认不启用慢查询，需要手动">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:image" content="http://qanp7f2om.bkt.clouddn.com/mysql_slowlog02.jpg">
-<meta property="og:updated_time" content="2020-06-03T09:20:58.609Z">
+<meta property="og:image" content="https://dwj999.github.io/images/mysql_slowlog02.jpg">
+<meta property="og:updated_time" content="2020-07-08T09:32:49.091Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MySQL 慢查询日志介绍">
 <meta name="twitter:description" content="慢查询日志简介慢查询日志是MySQL提供的一种日志记录形式，由SQL语句组成。用来记录在MySQL中响应时间超过阈值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。慢查询日志可用于查找执行时间较长的查询，因此可作为优化的候选对象。long_query_time的默认值为10，指运行10s以上的语句。 12注意：MySQL数据库默认不启用慢查询，需要手动">
-<meta name="twitter:image" content="http://qanp7f2om.bkt.clouddn.com/mysql_slowlog02.jpg">
+<meta name="twitter:image" content="https://dwj999.github.io/images/mysql_slowlog02.jpg">
 
 
 
@@ -474,7 +476,7 @@
 </tbody>
 </table>
 <h2 id="慢查询日志内容"><a href="#慢查询日志内容" class="headerlink" title="慢查询日志内容"></a>慢查询日志内容</h2><figure class="highlight vala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta"># Time: 2020-05-21T11:48:53.370480+08:00</span></span><br><span class="line"><span class="meta"># User@Host: root[root] @ localhost []  Id:     8</span></span><br><span class="line"><span class="meta"># Query_time: 2.763478  Lock_time: 0.000204 Rows_sent: 0  Rows_examined: 1100003</span></span><br><span class="line">SET timestamp=<span class="number">1590032930</span>;</span><br><span class="line">insert into employee1 (employeeid,employeename,createtime,jiessie1) select employeeid,employeename,createtime,jiessie1 from employee1;</span><br><span class="line"></span><br><span class="line"><span class="meta"># Time: 日志产生的时间</span></span><br><span class="line"><span class="meta"># User@Host: 客户端连接信息</span></span><br><span class="line"><span class="meta"># Id: 服务器端线程</span></span><br><span class="line"><span class="meta"># Query_time：查询时长</span></span><br><span class="line"><span class="meta"># Lock_time：锁持有时长</span></span><br><span class="line"><span class="meta"># Rows_sent：返回行数</span></span><br><span class="line"><span class="meta"># Rows_examined：扫描行数</span></span><br><span class="line"></span><br><span class="line">如果mysqld启动时指定了--log-<span class="keyword">short</span>-format参数，则不会输出第一、第二行。</span><br></pre></td></tr></table></figure>
-<h2 id="慢查询参数控制顺序"><a href="#慢查询参数控制顺序" class="headerlink" title="慢查询参数控制顺序"></a>慢查询参数控制顺序</h2><p><img src="http://qanp7f2om.bkt.clouddn.com/mysql_slowlog02.jpg" alt="image"></p>
+<h2 id="慢查询参数控制顺序"><a href="#慢查询参数控制顺序" class="headerlink" title="慢查询参数控制顺序"></a>慢查询参数控制顺序</h2><p><img src="../images/mysql_slowlog02.jpg" alt="image"></p>
 <h3 id="管理语句"><a href="#管理语句" class="headerlink" title="管理语句"></a>管理语句</h3><ul>
 <li>开启慢查询：slow_query_log=ON</li>
 <li>开启管理语句记录：log_slow_admin_statements = ON</li>
